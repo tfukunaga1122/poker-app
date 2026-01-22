@@ -2,7 +2,6 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime, timedelta
-import base64
 import math
 import time
 
@@ -37,12 +36,6 @@ st.markdown("""
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
-    }
-    div[data-testid="stStatusWidget"] > div {
-        background-color: transparent !important;
-        border: none !important;
-        color: white !important;
-        font-size: 1.2em !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -92,18 +85,13 @@ with tab_rank:
                 ranking = df_filtered.groupby("名前")["スコア"].sum().reset_index()
                 ranking = ranking.sort_values("スコア", ascending=False).reset_index(drop=True)
                 ranking.index += 1
-                if not df_players.empty:
-                    ranking = ranking.merge(df_players[["名前", "アイコン"]], on="名前", how="left")
                 
                 for i, row in ranking.iterrows():
                     c1, c2, c3 = st.columns([1, 4, 2])
-                    with c1:
-                        if pd.notna(row.get("アイコン")) and row["アイコン"]:
-                            st.image(row["アイコン"], width=45)
-                        else: st.write(f"#{i}")
+                    # アイコン表示を廃止し、順位のみ表示
+                    c1.write(f"#{i}")
                     c2.markdown(f"**{row['名前']}**")
                     color = "#58a6ff" if row['スコア'] >= 0 else "#f85149"
-                    # 【修正箇所】row['スコ2'] を row['スコア'] に修正しました
                     c3.markdown(f"<span style='color:{color}; font-size:1.2em; font-weight:bold;'>{int(row['スコア']):+,}</span>", unsafe_allow_html=True)
                     st.divider()
 
@@ -169,14 +157,8 @@ with tab_setting:
             for j in range(st.session_state.p_reg_rows):
                 with st.container(border=True):
                     st.write(f"新規プレイヤー #{j+1}")
-                    c_n, c_i = st.columns([3, 2])
-                    p_n = c_n.text_input("名前", key=f"p_reg_name_{j}")
-                    p_img = c_i.file_uploader("アイコン", type=['jpg', 'png', 'jpeg'], key=f"p_reg_img_{j}")
-                    p_icon_data = ""
-                    if p_img:
-                        encoded = base64.b64encode(p_img.read()).decode()
-                        p_icon_data = f"data:image/png;base64,{encoded}"
-                    new_players_list.append({"名前": p_n, "リーグ": reg_l, "アイコン": p_icon_data})
+                    p_n = st.text_input("名前", key=f"p_reg_name_{j}")
+                    new_players_list.append({"名前": p_n, "リーグ": reg_l})
             
             c_p_add, c_p_save = st.columns(2)
             if c_p_add.button("➕ 登録枠を追加", key="add_reg_slot"):
@@ -189,7 +171,7 @@ with tab_setting:
                     st.success(f"{len(valid_players)}名のプレイヤーを登録しました")
                     st.session_state.p_reg_rows = 1
                     for key in list(st.session_state.keys()):
-                        if key.startswith(("p_reg_name_", "p_reg_img_")): del st.session_state[key]
+                        if key.startswith("p_reg_name_"): del st.session_state[key]
                     st.rerun()
                 else: st.error("登録する名前を入力してください")
         else: st.warning("先に「リーグ管理」からリーグを作成してください")
