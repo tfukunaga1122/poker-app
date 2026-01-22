@@ -11,7 +11,7 @@ url = "https://docs.google.com/spreadsheets/d/1YLXZWQ6XZz04mi0dx9_6WFbm2-yZQGGIX
 
 st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout="centered")
 
-# --- デザインCSS（ロード中のぐるぐる背景を暗くする設定を追加） ---
+# --- デザインCSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #0d1117; color: #e6edf3; }
@@ -25,7 +25,7 @@ st.markdown("""
     .stButton>button { width: 100%; border-radius: 12px; background: linear-gradient(135deg, #238636, #2ea043); color: white; border: none; font-weight: bold; height: 3.5em; margin-top: 10px; }
     .total-sum-area { background-color: #1c2128; padding: 20px; border-radius: 15px; border: 2px solid #30363d; text-align: center; margin-top: 30px; }
     
-    /* 【追加】ロード中（spinner）が表示されている時に画面を暗くし、中央に配置する */
+    /* ロード中に画面を暗くする設定 */
     div[data-testid="stStatusWidget"] {
         background-color: rgba(0, 0, 0, 0.7) !important;
         position: fixed !important;
@@ -50,16 +50,14 @@ st.markdown("""
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data(sheet_name):
-    # ロード中も画面が暗くなります
     with st.spinner(f'{sheet_name}を読み込み中...'):
         try: return conn.read(spreadsheet=url, worksheet=sheet_name, ttl=0)
         except: return pd.DataFrame()
 
 def save_data(df, sheet_name):
-    # 保存中も画面が暗くなります
     with st.spinner('データを保存中...'):
         conn.update(spreadsheet=url, worksheet=sheet_name, data=df)
-        time.sleep(1) # 手応えを出すための待機
+        time.sleep(1) 
 
 # データ読み込み
 df_scores = load_data("scores")
@@ -69,7 +67,6 @@ df_trash = load_data("trash")
 
 st.title("♠️ Poker League Master")
 
-# ターゲットリーグの取得ロジックを整理
 if not df_leagues.empty:
     target_league = st.sidebar.selectbox("🏟️ リーグを選択", df_leagues["リーグ名"].tolist())
 else:
@@ -106,19 +103,19 @@ with tab_rank:
                         else: st.write(f"#{i}")
                     c2.markdown(f"**{row['名前']}**")
                     color = "#58a6ff" if row['スコア'] >= 0 else "#f85149"
-                    c3.markdown(f"<span style='color:{color}; font-size:1.2em; font-weight:bold;'>{int(row['スコ2']):+,}</span>", unsafe_allow_html=True)
+                    # 【修正箇所】row['スコ2'] を row['スコア'] に修正しました
+                    c3.markdown(f"<span style='color:{color}; font-size:1.2em; font-weight:bold;'>{int(row['スコア']):+,}</span>", unsafe_allow_html=True)
                     st.divider()
 
                 total_sum = int(df_filtered["スコア"].sum())
                 sum_color = "#e6edf3" if total_sum == 0 else ("#58a6ff" if total_sum > 0 else "#f85149")
                 st.markdown(f'<div class="total-sum-area"><p style="margin:0; color:#8b949e; font-size:0.9em;">合計差額</p><h2 style="margin:0; color:{sum_color};">{total_sum:+,}</h2></div>', unsafe_allow_html=True)
-            else: st.info("選択された期間のデータがありません")
-        else: st.info("このリーグのスコアデータはまだありません")
+            else: st.info("データがありません")
+        else: st.info("このリーグのスコアデータはありません")
     else: st.info("左メニューからリーグを選択してください")
 
 # --- 2. スコア入力 ---
 with tab_input:
-    # リーグとプレイヤーの存在チェックを厳密に
     if df_leagues.empty:
         st.error("先に「設定」タブから「リーグ管理」を行ってください")
     elif df_players.empty:
@@ -150,7 +147,6 @@ with tab_input:
                 st.session_state.input_rows += 1
                 st.rerun()
             if col_save.button("🚀 まとめて保存"):
-                # ここでsave_dataが呼ばれ、画面が暗くなります
                 save_data(pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True), "scores")
                 st.success("保存完了！")
                 st.session_state.input_rows = 1
