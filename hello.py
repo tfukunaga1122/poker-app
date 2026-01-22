@@ -88,7 +88,6 @@ with tab_rank:
                 
                 for i, row in ranking.iterrows():
                     c1, c2, c3 = st.columns([1, 4, 2])
-                    # アイコン表示を廃止し、順位のみ表示
                     c1.write(f"#{i}")
                     c2.markdown(f"**{row['名前']}**")
                     color = "#58a6ff" if row['スコア'] >= 0 else "#f85149"
@@ -135,11 +134,18 @@ with tab_input:
                 st.session_state.input_rows += 1
                 st.rerun()
             if col_save.button("🚀 まとめて保存"):
+                # 1. 保存
                 save_data(pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True), "scores")
-                st.success("保存完了！")
+                
+                # 2. 【重要】入力内容をクリア（session_stateから削除）
                 st.session_state.input_rows = 1
                 for key in list(st.session_state.keys()):
-                    if key.startswith(("p_name_", "raw_pts_", "rate_", "cust_")): del st.session_state[key]
+                    if key.startswith(("p_name_", "raw_pts_", "rate_", "cust_")):
+                        del st.session_state[key]
+                
+                # 3. 通知を出して画面をリセット
+                st.toast("スコアを保存しました！", icon="🚀")
+                time.sleep(0.5)
                 st.rerun()
     else:
         st.info("左メニューからリーグを選択してください")
@@ -168,23 +174,33 @@ with tab_setting:
                 valid_players = [p for p in new_players_list if p["名前"].strip() != ""]
                 if valid_players:
                     save_data(pd.concat([df_players, pd.DataFrame(valid_players)], ignore_index=True), "players")
-                    st.success(f"{len(valid_players)}名のプレイヤーを登録しました")
+                    
+                    # 【重要】プレイヤー登録の入力をクリア
                     st.session_state.p_reg_rows = 1
                     for key in list(st.session_state.keys()):
-                        if key.startswith("p_reg_name_"): del st.session_state[key]
+                        if key.startswith("p_reg_name_"):
+                            del st.session_state[key]
+                    
+                    st.toast(f"{len(valid_players)}名のプレイヤーを登録しました", icon="👥")
+                    time.sleep(0.5)
                     st.rerun()
                 else: st.error("登録する名前を入力してください")
         else: st.warning("先に「リーグ管理」からリーグを作成してください")
 
     with m_tab2:
         st.subheader("リーグの新設")
-        new_l_name = st.text_input("新しいリーグ名", key="new_l_name")
-        if st.button("リーグを作成"):
-            if new_l_name:
-                save_data(pd.concat([df_leagues, pd.DataFrame({"リーグ名": [new_l_name]})], ignore_index=True), "leagues")
-                st.success(f"リーグ「{new_l_name}」を作成しました")
-                if "new_l_name" in st.session_state: del st.session_state["new_l_name"]
-                st.rerun()
+        # フォーム形式にすることで「送信後にクリア」を確実にする
+        with st.form("league_form", clear_on_submit=True):
+            new_l_name = st.text_input("新しいリーグ名")
+            submitted = st.form_submit_button("リーグを作成")
+            if submitted:
+                if new_l_name:
+                    save_data(pd.concat([df_leagues, pd.DataFrame({"リーグ名": [new_l_name]})], ignore_index=True), "leagues")
+                    st.toast(f"リーグ「{new_l_name}」を作成しました", icon="🏆")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("リーグ名を入力してください")
 
     with m_tab3:
         st.subheader("削除履歴")
