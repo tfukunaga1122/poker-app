@@ -10,54 +10,52 @@ url = "https://docs.google.com/spreadsheets/d/1YLXZWQ6XZz04mi0dx9_6WFbm2-yZQGGIX
 
 st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout="centered")
 
-# --- 視認性を劇的に改善するCSS ---
+# --- デザインCSS（視認性向上とポーカー演出） ---
 st.markdown("""
     <style>
-    /* 全体の背景と文字色 */
+    /* 全体背景 */
     .stApp { background-color: #0d1117; color: #e6edf3; }
     
-    /* 入力欄（Selectbox, NumberInput等）の文字色を強制的に白系にする */
-    div[data-baseweb="select"] > div, 
-    div[data-baseweb="input"] input,
-    .stNumberInput input {
+    /* 入力欄の文字色と背景を固定（ダークモード対策） */
+    input, select, textarea, div[data-baseweb="select"] {
         color: #ffffff !important;
         background-color: #1c2128 !important;
     }
-    
-    /* 選択されていない時のラベルやプレースホルダーの色 */
-    label, .stCaption { color: #8b949e !important; }
 
-    /* タブのデザイン改善 */
+    /* タブのデザイン */
     .stTabs [data-baseweb="tab-list"] { background-color: #161b22; border-radius: 10px; padding: 5px; }
-    .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: bold; }
+    .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: bold; font-size: 16px; }
     .stTabs [aria-selected="true"] { color: #58a6ff !important; border-bottom: 2px solid #58a6ff !important; }
 
-    /* ボタンのデザイン */
-    .stButton>button { width: 100%; border-radius: 10px; background: linear-gradient(135deg, #238636, #2ea043); color: white; border: none; font-weight: bold; height: 3.5em; }
+    /* ボタン */
+    .stButton>button { width: 100%; border-radius: 12px; background: linear-gradient(135deg, #238636, #2ea043); color: white; border: none; font-weight: bold; height: 3.5em; margin-top: 10px; }
     
-    /* テーブルのデザイン */
-    .stTable { background-color: #161b22; color: white; border-radius: 10px; }
-    
-    /* 合計差額のエリア */
+    /* カード風の囲い */
+    .input-card { background-color: #1c2128; border: 1px solid #30363d; border-radius: 15px; padding: 15px; margin-bottom: 10px; }
+
+    /* 合計差額エリア */
     .total-sum-area {
         background-color: #1c2128;
-        padding: 15px;
+        padding: 20px;
         border-radius: 15px;
-        border: 1px solid #30363d;
+        border: 2px solid #30363d;
         text-align: center;
-        margin-top: 20px;
+        margin-top: 30px;
     }
     </style>
     """, unsafe_allow_html=True)
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# --- 読み込み中のぐるぐるを表示する関数 ---
 def load_data(sheet_name):
-    try: return conn.read(spreadsheet=url, worksheet=sheet_name, ttl=0)
-    except: return pd.DataFrame()
+    with st.spinner(f'{sheet_name}を読み込み中...'):
+        try: return conn.read(spreadsheet=url, worksheet=sheet_name, ttl=0)
+        except: return pd.DataFrame()
 
 def save_data(df, sheet_name):
-    conn.update(spreadsheet=url, worksheet=sheet_name, data=df)
+    with st.spinner('データを保存中...'):
+        conn.update(spreadsheet=url, worksheet=sheet_name, data=df)
 
 # データ読み込み
 df_scores = load_data("scores")
@@ -65,31 +63,31 @@ df_players = load_data("players")
 df_leagues = load_data("leagues")
 df_trash = load_data("trash")
 
-# リーグ選択
+# --- メイン画面 ---
 st.title("♠️ Poker League Master")
+
 if not df_leagues.empty:
-    target_league = st.sidebar.selectbox("🏟️ リーグ切替", df_leagues["リーグ名"].tolist())
+    target_league = st.sidebar.selectbox("🏟️ リーグを選択", df_leagues["リーグ名"].tolist())
 else:
-    st.sidebar.warning("設定からリーグを作成してください")
+    st.sidebar.warning("「設定」からリーグを作成してください")
     target_league = None
 
-# --- ナビゲーション ---
-tab_rank, tab_input, tab_setting = st.tabs(["🏆 Ranking", "💰 Input", "⚙️ Settings"])
+# ナビゲーション
+tab_rank, tab_input, tab_setting = st.tabs(["🏆 ランキング", "💰 スコア入力", "⚙️ 設定"])
 
-# --- 1. Ranking ---
+# --- 1. ランキング ---
 with tab_rank:
     if target_league and not df_scores.empty:
         df_l = df_scores[df_scores["リーグ"] == target_league].copy()
         df_l["日付"] = pd.to_datetime(df_l["日付"])
         
-        period = st.radio("期間", ["今日", "週間", "月間"], horizontal=True)
+        period = st.radio("表示期間", ["今日", "週間", "月間"], horizontal=True)
         now = datetime.now()
         if period == "今日": df_filtered = df_l[df_l["日付"].dt.date == now.date()]
         elif period == "週間": df_filtered = df_l[df_l["日付"] >= (now - timedelta(days=now.weekday()))]
         else: df_filtered = df_l[(df_l["日付"].dt.year == now.year) & (df_l["日付"].dt.month == now.month)]
         
         if not df_filtered.empty:
-            # スコアを数値化して集計
             df_filtered["スコア"] = pd.to_numeric(df_filtered["スコア"], errors='coerce').fillna(0)
             ranking = df_filtered.groupby("名前")["スコア"].sum().reset_index()
             ranking = ranking.sort_values("スコア", ascending=False).reset_index(drop=True)
@@ -98,7 +96,6 @@ with tab_rank:
             if not df_players.empty:
                 ranking = ranking.merge(df_players[["名前", "アイコン"]], on="名前", how="left")
             
-            # ランキング表示
             for i, row in ranking.iterrows():
                 c1, c2, c3 = st.columns([1, 4, 2])
                 with c1:
@@ -107,97 +104,116 @@ with tab_rank:
                     else: st.write(f"#{i}")
                 c2.markdown(f"**{row['名前']}**")
                 color = "#58a6ff" if row['スコア'] >= 0 else "#f85149"
-                c3.markdown(f"<span style='color:{color}; font-size:1.2em; font-weight:bold;'>{int(row['スコア']):,}</span>", unsafe_allow_html=True)
+                c3.markdown(f"<span style='color:{color}; font-size:1.2em; font-weight:bold;'>{int(row['スコア']):+,}</span>", unsafe_allow_html=True)
                 st.divider()
 
-            # --- 合計差額の表示 ---
+            # 合計差額
             total_sum = int(df_filtered["スコア"].sum())
             sum_color = "#e6edf3" if total_sum == 0 else ("#58a6ff" if total_sum > 0 else "#f85149")
             st.markdown(f"""
                 <div class="total-sum-area">
-                    <p style="margin:0; color:#8b949e; font-size:0.9em;">表示中データの合計差額</p>
+                    <p style="margin:0; color:#8b949e; font-size:0.9em;">表示中の合計差額</p>
                     <h2 style="margin:0; color:{sum_color};">{total_sum:+,}</h2>
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("集計対象のデータがありません")
+            st.info("データがありません")
     else:
-        st.write("データがありません")
+        st.write("リーグを選択してください")
 
-# --- 2. Input (複数人同時入力 & 整数化) ---
+# --- 2. スコア入力（同時入力・自動クリア） ---
 with tab_input:
     if target_league and not df_players.empty:
         league_players = df_players[df_players["リーグ"] == target_league]["名前"].tolist()
         
         if not league_players:
-            st.warning("このリーグに登録されたプレイヤーがいません")
+            st.warning("このリーグにプレイヤーがいません")
         else:
-            if "input_rows" not in st.session_state: st.session_state.input_rows = 1
+            if "input_rows" not in st.session_state:
+                st.session_state.input_rows = 1
             
-            new_scores_list = []
+            entries = []
             for i in range(st.session_state.input_rows):
                 with st.container(border=True):
-                    st.write(f"Entry #{i+1}")
+                    st.write(f"入力 #{i+1}")
                     c1, c2, c3 = st.columns([2, 2, 2])
-                    p_name = c1.selectbox("Player", league_players, key=f"name_{i}")
-                    raw_points = c2.number_input("Points", step=10, key=f"raw_{i}")
-                    rate = c3.selectbox("Rate", ["1/1", "1/5", "1/10", "1/30", "Custom"], key=f"rate_{i}")
+                    p_name = c1.selectbox("プレイヤー", league_players, key=f"p_name_{i}")
+                    raw_pts = c2.number_input("ポイント", step=10, key=f"raw_pts_{i}")
+                    rate = c3.selectbox("レート", ["1/1", "1/5", "1/10", "1/30", "カスタム"], key=f"rate_{i}")
                     
-                    divisor = 1
-                    if rate == "1/5": divisor = 5
-                    elif rate == "1/10": divisor = 10
-                    elif rate == "1/30": divisor = 30
-                    elif rate == "Custom":
-                        divisor = st.number_input("Divisor", min_value=0.1, value=1.0, key=f"custom_{i}")
+                    div = 1
+                    if rate == "1/5": div = 5
+                    elif rate == "1/10": div = 10
+                    elif rate == "1/30": div = 30
+                    elif rate == "カスタム":
+                        div = st.number_input("割る数", min_value=0.1, value=1.0, key=f"cust_{i}")
                     
-                    # 小数点以下を切り捨てて整数にする
-                    final_score = math.floor(raw_points / divisor)
+                    final_score = math.floor(raw_pts / div)
                     st.caption(f"スコア換算: {final_score:,}")
-                    new_scores_list.append({"名前": p_name, "スコア": final_score, "日付": datetime.now().strftime("%Y-%m-%d %H:%M"), "リーグ": target_league})
+                    entries.append({"名前": p_name, "スコア": final_score, "日付": datetime.now().strftime("%Y-%m-%d %H:%M"), "リーグ": target_league})
 
             col_add, col_save = st.columns(2)
-            if col_add.button("➕ Playerを追加"):
+            if col_add.button("➕ プレイヤーを追加"):
                 st.session_state.input_rows += 1
                 st.rerun()
             
             if col_save.button("🚀 まとめて保存"):
-                new_df = pd.DataFrame(new_scores_list)
-                save_data(pd.concat([df_scores, new_df], ignore_index=True), "scores")
-                st.success(f"{len(new_scores_list)}名のスコアを保存しました！")
+                save_data(pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True), "scores")
+                st.success("保存に成功しました！入力欄をリセットします。")
+                # セッションをクリアして入力をリセット
                 st.session_state.input_rows = 1
+                for key in list(st.session_state.keys()):
+                    if key.startswith(("p_name_", "raw_pts_", "rate_", "cust_")):
+                        del st.session_state[key]
                 st.rerun()
     else:
-        st.error("Settingsタブでリーグとプレイヤーを登録してください")
+        st.error("先に設定からリーグとプレイヤーを登録してください")
 
-# --- 3. Settings ---
+# --- 3. 設定 ---
 with tab_setting:
-    m_tab1, m_tab2, m_tab3 = st.tabs(["👥 Players", "🏟️ Leagues", "🗑️ Trash"])
+    m_tab1, m_tab2, m_tab3 = st.tabs(["👥 プレイヤー管理", "🏟️ リーグ管理", "🗑️ ごみ箱"])
     
     with m_tab1:
-        st.subheader("プレイヤー登録 (リーグ別)")
+        st.subheader("プレイヤーの新規登録")
         if not df_leagues.empty:
-            reg_league = st.selectbox("登録先リーグ", df_leagues["リーグ名"].tolist())
-            new_p_name = st.text_input("名前")
-            img_file = st.file_uploader("アイコン画像(JPG/PNG)", type=['jpg', 'png', 'jpeg'])
+            reg_l = st.selectbox("登録先リーグ", df_leagues["リーグ名"].tolist(), key="reg_l")
+            new_n = st.text_input("名前", key="new_n")
+            img = st.file_uploader("アイコン画像", type=['jpg', 'png', 'jpeg'], key="new_img")
             
             icon_data = ""
-            if img_file:
-                encoded = base64.b64encode(img_file.read()).decode()
+            if img:
+                encoded = base64.b64encode(img.read()).decode()
                 icon_data = f"data:image/png;base64,{encoded}"
             
-            if st.button("メンバを登録"):
-                if new_p_name:
-                    new_p = pd.DataFrame({"名前": [new_p_name], "リーグ": [reg_league], "アイコン": [icon_data]})
+            if st.button("プレイヤーを登録"):
+                if new_n:
+                    new_p = pd.DataFrame({"名前": [new_n], "リーグ": [reg_l], "アイコン": [icon_data]})
                     save_data(pd.concat([df_players, new_p], ignore_index=True), "players")
-                    st.success("登録完了！")
+                    st.success(f"{new_n} さんを登録しました")
+                    # 入力欄クリア
+                    del st.session_state["new_n"]
                     st.rerun()
         else: st.warning("先にリーグを作成してください")
 
     with m_tab2:
-        st.subheader("リーグ作成")
-        new_l = st.text_input("新しいリーグ名")
-        if st.button("リーグを新設"):
-            if new_l:
-                save_data(pd.concat([df_leagues, pd.DataFrame({"リーグ名": [new_l]})], ignore_index=True), "leagues")
-                st.success("リーグを作成しました")
+        st.subheader("リーグの新設")
+        new_l_name = st.text_input("新しいリーグ名", key="new_l_name")
+        if st.button("リーグを作成"):
+            if new_l_name:
+                save_data(pd.concat([df_leagues, pd.DataFrame({"リーグ名": [new_l_name]})], ignore_index=True), "leagues")
+                st.success(f"リーグ「{new_l_name}」を作成しました")
+                del st.session_state["new_l_name"]
                 st.rerun()
+
+    with m_tab3:
+        st.subheader("削除履歴")
+        if not df_trash.empty:
+            for i, row in df_trash.iterrows():
+                with st.container(border=True):
+                    col1, col2 = st.columns([3, 1])
+                    col1.write(f"{row['名前']} ({int(row['スコア']):+,}) - {row['リーグ']}")
+                    if col2.button("復元", key=f"res_{i}"):
+                        save_data(pd.concat([df_scores, row.drop("削除日時").to_frame().T], ignore_index=True), "scores")
+                        save_data(df_trash.drop(i), "trash")
+                        st.rerun()
+        else: st.write("ごみ箱は空です")
