@@ -10,44 +10,24 @@ url = "https://docs.google.com/spreadsheets/d/1YLXZWQ6XZz04mi0dx9_6WFbm2-yZQGGIX
 
 st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout="centered")
 
-# --- デザインCSS（視認性向上とポーカー演出） ---
+# --- デザインCSS ---
 st.markdown("""
     <style>
-    /* 全体背景 */
     .stApp { background-color: #0d1117; color: #e6edf3; }
-    
-    /* 入力欄の文字色と背景を固定（ダークモード対策） */
     input, select, textarea, div[data-baseweb="select"] {
         color: #ffffff !important;
         background-color: #1c2128 !important;
     }
-
-    /* タブのデザイン */
     .stTabs [data-baseweb="tab-list"] { background-color: #161b22; border-radius: 10px; padding: 5px; }
     .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: bold; font-size: 16px; }
     .stTabs [aria-selected="true"] { color: #58a6ff !important; border-bottom: 2px solid #58a6ff !important; }
-
-    /* ボタン */
     .stButton>button { width: 100%; border-radius: 12px; background: linear-gradient(135deg, #238636, #2ea043); color: white; border: none; font-weight: bold; height: 3.5em; margin-top: 10px; }
-    
-    /* カード風の囲い */
-    .input-card { background-color: #1c2128; border: 1px solid #30363d; border-radius: 15px; padding: 15px; margin-bottom: 10px; }
-
-    /* 合計差額エリア */
-    .total-sum-area {
-        background-color: #1c2128;
-        padding: 20px;
-        border-radius: 15px;
-        border: 2px solid #30363d;
-        text-align: center;
-        margin-top: 30px;
-    }
+    .total-sum-area { background-color: #1c2128; padding: 20px; border-radius: 15px; border: 2px solid #30363d; text-align: center; margin-top: 30px; }
     </style>
     """, unsafe_allow_html=True)
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 読み込み中のぐるぐるを表示する関数 ---
 def load_data(sheet_name):
     with st.spinner(f'{sheet_name}を読み込み中...'):
         try: return conn.read(spreadsheet=url, worksheet=sheet_name, ttl=0)
@@ -63,7 +43,6 @@ df_players = load_data("players")
 df_leagues = load_data("leagues")
 df_trash = load_data("trash")
 
-# --- メイン画面 ---
 st.title("♠️ Poker League Master")
 
 if not df_leagues.empty:
@@ -72,7 +51,6 @@ else:
     st.sidebar.warning("「設定」からリーグを作成してください")
     target_league = None
 
-# ナビゲーション
 tab_rank, tab_input, tab_setting = st.tabs(["🏆 ランキング", "💰 スコア入力", "⚙️ 設定"])
 
 # --- 1. ランキング ---
@@ -80,7 +58,6 @@ with tab_rank:
     if target_league and not df_scores.empty:
         df_l = df_scores[df_scores["リーグ"] == target_league].copy()
         df_l["日付"] = pd.to_datetime(df_l["日付"])
-        
         period = st.radio("表示期間", ["今日", "週間", "月間"], horizontal=True)
         now = datetime.now()
         if period == "今日": df_filtered = df_l[df_l["日付"].dt.date == now.date()]
@@ -92,7 +69,6 @@ with tab_rank:
             ranking = df_filtered.groupby("名前")["スコア"].sum().reset_index()
             ranking = ranking.sort_values("スコア", ascending=False).reset_index(drop=True)
             ranking.index += 1
-            
             if not df_players.empty:
                 ranking = ranking.merge(df_players[["名前", "アイコン"]], on="名前", how="left")
             
@@ -107,47 +83,30 @@ with tab_rank:
                 c3.markdown(f"<span style='color:{color}; font-size:1.2em; font-weight:bold;'>{int(row['スコア']):+,}</span>", unsafe_allow_html=True)
                 st.divider()
 
-            # 合計差額
             total_sum = int(df_filtered["スコア"].sum())
             sum_color = "#e6edf3" if total_sum == 0 else ("#58a6ff" if total_sum > 0 else "#f85149")
-            st.markdown(f"""
-                <div class="total-sum-area">
-                    <p style="margin:0; color:#8b949e; font-size:0.9em;">表示中の合計差額</p>
-                    <h2 style="margin:0; color:{sum_color};">{total_sum:+,}</h2>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("データがありません")
-    else:
-        st.write("リーグを選択してください")
+            st.markdown(f'<div class="total-sum-area"><p style="margin:0; color:#8b949e; font-size:0.9em;">合計差額</p><h2 style="margin:0; color:{sum_color};">{total_sum:+,}</h2></div>', unsafe_allow_html=True)
+        else: st.info("データがありません")
 
-# --- 2. スコア入力（同時入力・自動クリア） ---
+# --- 2. スコア入力 ---
 with tab_input:
     if target_league and not df_players.empty:
         league_players = df_players[df_players["リーグ"] == target_league]["名前"].tolist()
-        
-        if not league_players:
-            st.warning("このリーグにプレイヤーがいません")
+        if not league_players: st.warning("このリーグにプレイヤーがいません")
         else:
-            if "input_rows" not in st.session_state:
-                st.session_state.input_rows = 1
-            
+            if "input_rows" not in st.session_state: st.session_state.input_rows = 1
             entries = []
             for i in range(st.session_state.input_rows):
                 with st.container(border=True):
-                    st.write(f"入力 #{i+1}")
                     c1, c2, c3 = st.columns([2, 2, 2])
                     p_name = c1.selectbox("プレイヤー", league_players, key=f"p_name_{i}")
                     raw_pts = c2.number_input("ポイント", step=10, key=f"raw_pts_{i}")
                     rate = c3.selectbox("レート", ["1/1", "1/5", "1/10", "1/30", "カスタム"], key=f"rate_{i}")
-                    
                     div = 1
                     if rate == "1/5": div = 5
                     elif rate == "1/10": div = 10
                     elif rate == "1/30": div = 30
-                    elif rate == "カスタム":
-                        div = st.number_input("割る数", min_value=0.1, value=1.0, key=f"cust_{i}")
-                    
+                    elif rate == "カスタム": div = st.number_input("割る数", min_value=0.1, value=1.0, key=f"cust_{i}")
                     final_score = math.floor(raw_pts / div)
                     st.caption(f"スコア換算: {final_score:,}")
                     entries.append({"名前": p_name, "スコア": final_score, "日付": datetime.now().strftime("%Y-%m-%d %H:%M"), "リーグ": target_league})
@@ -156,43 +115,56 @@ with tab_input:
             if col_add.button("➕ プレイヤーを追加"):
                 st.session_state.input_rows += 1
                 st.rerun()
-            
             if col_save.button("🚀 まとめて保存"):
                 save_data(pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True), "scores")
-                st.success("保存に成功しました！入力欄をリセットします。")
-                # セッションをクリアして入力をリセット
+                st.success("保存完了！リセットします。")
                 st.session_state.input_rows = 1
                 for key in list(st.session_state.keys()):
-                    if key.startswith(("p_name_", "raw_pts_", "rate_", "cust_")):
-                        del st.session_state[key]
+                    if key.startswith(("p_name_", "raw_pts_", "rate_", "cust_")): del st.session_state[key]
                 st.rerun()
-    else:
-        st.error("先に設定からリーグとプレイヤーを登録してください")
+    else: st.error("先にリーグとプレイヤーを登録してください")
 
 # --- 3. 設定 ---
 with tab_setting:
     m_tab1, m_tab2, m_tab3 = st.tabs(["👥 プレイヤー管理", "🏟️ リーグ管理", "🗑️ ごみ箱"])
     
     with m_tab1:
-        st.subheader("プレイヤーの新規登録")
+        st.subheader("プレイヤー一括登録")
         if not df_leagues.empty:
-            reg_l = st.selectbox("登録先リーグ", df_leagues["リーグ名"].tolist(), key="reg_l")
-            new_n = st.text_input("名前", key="new_n")
-            img = st.file_uploader("アイコン画像", type=['jpg', 'png', 'jpeg'], key="new_img")
+            reg_l = st.selectbox("登録先リーグ", df_leagues["リーグ名"].tolist(), key="p_reg_league")
             
-            icon_data = ""
-            if img:
-                encoded = base64.b64encode(img.read()).decode()
-                icon_data = f"data:image/png;base64,{encoded}"
+            if "p_reg_rows" not in st.session_state: st.session_state.p_reg_rows = 1
             
-            if st.button("プレイヤーを登録"):
-                if new_n:
-                    new_p = pd.DataFrame({"名前": [new_n], "リーグ": [reg_l], "アイコン": [icon_data]})
-                    save_data(pd.concat([df_players, new_p], ignore_index=True), "players")
-                    st.success(f"{new_n} さんを登録しました")
-                    # 入力欄クリア
-                    del st.session_state["new_n"]
+            new_players_list = []
+            for j in range(st.session_state.p_reg_rows):
+                with st.container(border=True):
+                    st.write(f"新規プレイヤー #{j+1}")
+                    c_n, c_i = st.columns([3, 2])
+                    p_n = c_n.text_input("名前", key=f"p_reg_name_{j}")
+                    p_img = c_i.file_uploader("アイコン", type=['jpg', 'png', 'jpeg'], key=f"p_reg_img_{j}")
+                    
+                    p_icon_data = ""
+                    if p_img:
+                        encoded = base64.b64encode(p_img.read()).decode()
+                        p_icon_data = f"data:image/png;base64,{encoded}"
+                    new_players_list.append({"名前": p_n, "リーグ": reg_l, "アイコン": p_icon_data})
+            
+            c_p_add, c_p_save = st.columns(2)
+            if c_p_add.button("➕ 登録枠を追加"):
+                st.session_state.p_reg_rows += 1
+                st.rerun()
+                
+            if c_p_save.button("🚀 まとめて登録"):
+                # 名前が空のデータを除外して保存
+                valid_players = [p for p in new_players_list if p["名前"].strip() != ""]
+                if valid_players:
+                    save_data(pd.concat([df_players, pd.DataFrame(valid_players)], ignore_index=True), "players")
+                    st.success(f"{len(valid_players)}名のプレイヤーを登録しました")
+                    st.session_state.p_reg_rows = 1
+                    for key in list(st.session_state.keys()):
+                        if key.startswith(("p_reg_name_", "p_reg_img_")): del st.session_state[key]
                     st.rerun()
+                else: st.error("登録する名前を入力してください")
         else: st.warning("先にリーグを作成してください")
 
     with m_tab2:
@@ -212,7 +184,7 @@ with tab_setting:
                 with st.container(border=True):
                     col1, col2 = st.columns([3, 1])
                     col1.write(f"{row['名前']} ({int(row['スコア']):+,}) - {row['リーグ']}")
-                    if col2.button("復元", key=f"res_{i}"):
+                    if col2.button("復元", key=f"res_trash_{i}"):
                         save_data(pd.concat([df_scores, row.drop("削除日時").to_frame().T], ignore_index=True), "scores")
                         save_data(df_trash.drop(i), "trash")
                         st.rerun()
