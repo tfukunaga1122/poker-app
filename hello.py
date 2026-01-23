@@ -10,7 +10,7 @@ url = "https://docs.google.com/spreadsheets/d/1YLXZWQ6XZz04mi0dx9_6WFbm2-yZQGGIX
 
 st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout="centered")
 
-# --- デザインCSS（究極のタイト表示と新装飾） ---
+# --- デザインCSS（称号を削除し、レイアウトを最適化） ---
 st.markdown("""
     <style>
     .stApp { background-color: #0d1117; color: #e6edf3; }
@@ -28,14 +28,13 @@ st.markdown("""
     div.stButton > button[key^="user_"] {
         background: none !important; border: none !important; padding: 0 !important; margin: 0 !important;
         color: #58a6ff !important; height: 26px !important; line-height: 26px !important;
-        text-align: left !important; font-weight: bold !important; font-size: 0.9em !important;
+        text-align: left !important; font-weight: bold !important; font-size: 0.95em !important;
     }
 
     .rank-num { font-size: 0.75em; color: #8b949e; padding-top: 5px; }
     .score-num { font-size: 0.9em; font-weight: bold; text-align: right; padding-top: 5px; }
-    .change-up { color: #3fb950; font-size: 0.7em; }
-    .change-down { color: #f85149; font-size: 0.7em; }
-    .badge { font-size: 0.65em; padding: 1px 4px; border-radius: 4px; margin-left: 4px; vertical-align: middle; font-weight: normal; }
+    .change-up { color: #3fb950; font-size: 0.8em; font-weight: bold; }
+    .change-down { color: #f85149; font-size: 0.8em; font-weight: bold; }
     
     .hall-of-fame { background: linear-gradient(135deg, #1c2128, #161b22); padding: 10px; border-radius: 10px; border: 1px solid #d4af37; margin-top: 15px; }
     .zero-check-ok { color: #3fb950; font-weight: bold; font-size: 0.9em; }
@@ -58,7 +57,7 @@ def load_data(sheet_name):
         return data.dropna(how="all") if data is not None else pd.DataFrame()
     except Exception: return None
 
-# --- データ読み込み ---
+# --- データ読み込みとキャッシュ保持 ---
 for s in ["scores", "players", "leagues"]:
     if f"cache_{s}" not in st.session_state: st.session_state[f"cache_{s}"] = pd.DataFrame()
     d = load_data(s)
@@ -79,78 +78,78 @@ else: t_league = None
 
 tab_rank, tab_input, tab_setting = st.tabs(["🏆 ランキング", "💰 入力", "⚙️ 設定"])
 
-# --- 1. ランキング & 殿堂入り ---
+# --- 1. ランキング ---
 with tab_rank:
     if t_league and not df_scores.empty:
         df_l = df_scores[df_scores["リーグ"] == t_league].copy()
         df_l["スコア"] = pd.to_numeric(df_l["スコア"], errors='coerce').fillna(0)
         df_l["日付"] = pd.to_datetime(df_l["日付"], errors='coerce')
         
-        if not df_l.empty:
-            # 称号・順位変動の計算
-            all_names = df_l["名前"].unique()
-            now_rank_df = df_l.groupby("名前")["スコア"].sum().sort_values(ascending=False).reset_index()
-            now_rank_df.index += 1
-            
-            # 前回（最新日を除いた）の順位を計算
-            latest_date = df_l["日付"].max()
-            prev_df = df_l[df_l["日付"] < latest_date]
-            if not prev_df.empty:
-                prev_rank_df = prev_df.groupby("名前")["スコア"].sum().sort_values(ascending=False).reset_index()
-                prev_rank_df.index += 1
-                rank_map = dict(zip(prev_rank_df["名前"], prev_rank_df.index))
-            else: rank_map = {}
+        # 分析画面（ユーザー名クリック時）
+        if "detail_p" in st.session_state:
+            dp = st.session_state.detail_p
+            with st.container(border=True):
+                c_h, c_c = st.columns([5, 1])
+                c_h.write(f"📊 **{dp}** の分析")
+                if c_c.button("✖️"): del st.session_state.detail_p; st.rerun()
+                df_p = df_l[df_l["名前"] == dp].sort_values("日付")
+                if not df_p.empty:
+                    s1, s2, s3, s4 = st.columns(4)
+                    s1.metric("平均", f"{df_p['スコア'].mean():.0f}")
+                    s2.metric("勝率", f"{(df_p['スコア']>0).mean()*100:.0f}%")
+                    s3.metric("最高", f"{df_p['スコア'].max():+,}")
+                    s4.metric("最低", f"{df_p['スコア'].min():+,}")
+                    st.line_chart(df_p.set_index("日付")["スコア"].cumsum())
 
-            period = st.radio("範囲", ["今日", "月間", "全期間"], horizontal=True, label_visibility="collapsed")
-            if period == "今日": df_f = df_l[df_l["日付"].dt.date == datetime.now().date()]
-            elif period == "月間": df_f = df_l[(df_l["日付"].dt.year == datetime.now().year) & (df_l["日付"].dt.month == datetime.now().month)]
-            else: df_f = df_l
-            
-            if not df_f.empty:
-                r_df = df_f.groupby("名前")["スコア"].sum().reset_index().sort_values("スコア", ascending=False).reset_index(drop=True)
-                for i, row in r_df.iterrows():
-                    v = int(row['スコア']); c = "#58a6ff" if v >= 0 else "#f85149"; name = row['名前']
-                    
-                    # 順位変動
-                    change_html = ""
-                    if name in rank_map and period == "全期間":
-                        diff = rank_map[name] - (i + 1)
-                        if diff > 0: change_html = f'<span class="change-up">▲{diff}</span>'
-                        elif diff < 0: change_html = f'<span class="change-down">▼{abs(diff)}</span>'
-                    
-                    # 称号付与
-                    p_data = df_l[df_l["名前"] == name]
-                    win_rate = (p_data["スコア"] > 0).mean()
-                    max_v = p_data["スコア"].max()
-                    badge_html = ""
-                    if win_rate >= 0.6 and len(p_data) >= 3: badge_html = '<span class="badge" style="background:#238636;">鉄壁</span>'
-                    elif max_v >= 200: badge_html = '<span class="badge" style="background:#d4af37; color:black;">爆発</span>'
-                    elif len(p_data) >= 10: badge_html = '<span class="badge" style="background:#1f6feb;">常連</span>'
-                    elif len(p_data) <= 2: badge_html = '<span class="badge" style="background:#8b949e;">新星</span>'
+        # 順位変動の計算
+        latest_date = df_l["日付"].max()
+        prev_df = df_l[df_l["日付"] < latest_date]
+        rank_map = {}
+        if not prev_df.empty:
+            prev_rank = prev_df.groupby("名前")["スコア"].sum().sort_values(ascending=False).reset_index()
+            prev_rank.index += 1
+            rank_map = dict(zip(prev_rank["名前"], prev_rank.index))
 
-                    st.markdown('<div class="compact-row">', unsafe_allow_html=True)
-                    c_r, c_n, c_v = st.columns([0.15, 0.65, 0.2])
-                    c_r.markdown(f'<div class="rank-num">#{i+1} {change_html}</div>', unsafe_allow_html=True)
-                    if c_n.button(f"{name}{badge_html}", key=f"user_{name}"):
-                        st.session_state.detail_p = name; st.rerun()
-                    c_v.markdown(f'<div class="score-num" style="color:{c};">{v:+,}</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+        period = st.radio("範囲", ["今日", "月間", "全期間"], horizontal=True, label_visibility="collapsed")
+        if period == "今日": df_f = df_l[df_l["日付"].dt.date == datetime.now().date()]
+        elif period == "月間": df_f = df_l[(df_l["日付"].dt.year == datetime.now().year) & (df_l["日付"].dt.month == datetime.now().month)]
+        else: df_f = df_l
+        
+        if not df_f.empty:
+            r_df = df_f.groupby("名前")["スコア"].sum().reset_index().sort_values("スコア", ascending=False).reset_index(drop=True)
+            for i, row in r_df.iterrows():
+                v = int(row['スコア']); c = "#58a6ff" if v >= 0 else "#f85149"; name = row['名前']
+                
+                # 順位変動（全期間のみ表示）
+                change_html = ""
+                if name in rank_map and period == "全期間":
+                    diff = rank_map[name] - (i + 1)
+                    if diff > 0: change_html = f'<span class="change-up"> ▲{diff}</span>'
+                    elif diff < 0: change_html = f'<span class="change-down"> ▼{abs(diff)}</span>'
+
+                st.markdown('<div class="compact-row">', unsafe_allow_html=True)
+                c_r, c_n, c_v = st.columns([0.18, 0.57, 0.25])
+                c_r.markdown(f'<div class="rank-num">#{i+1}{change_html}</div>', unsafe_allow_html=True)
+                if c_n.button(name, key=f"user_{name}"):
+                    st.session_state.detail_p = name; st.rerun()
+                c_v.markdown(f'<div class="score-num" style="color:{c};">{v:+,}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
             # 殿堂入り
-            st.markdown(f'''<div class="hall-of-fame"><div style="font-size:0.7em; color:#d4af37; font-weight:bold; margin-bottom:5px;">🏆 {t_league} 殿堂入りレコード</div>
+            st.markdown(f'''<div class="hall-of-fame"><div style="font-size:0.7em; color:#d4af37; font-weight:bold; margin-bottom:5px;">🏆 {t_league} 記録</div>
                 <div style="display:flex; justify-content:space-around; font-size:0.75em;">
-                <div>🥇最高勝利: <b>{int(df_l["スコア"].max()):+,}</b></div>
-                <div>💀最大敗北: <b>{int(df_l["スコア"].min()):+,}</b></div>
-                <div>🎮最多参加: <b>{df_l["名前"].value_counts().max()}回</b></div>
+                <div>最高勝利: <b>{int(df_l["スコア"].max()):+,}</b></div>
+                <div>最大敗北: <b>{int(df_l["スコア"].min()):+,}</b></div>
+                <div>最多参加: <b>{df_l["名前"].value_counts().max()}回</b></div>
                 </div></div>''', unsafe_allow_html=True)
-    else: st.info("リーグを選択")
+    else: st.info("データがありません")
 
-# --- 2. スコア入力 & 収支チェック ---
+# --- 2. スコア入力 ---
 with tab_input:
+    entries = [] # 初期化
     if t_league and not df_players.empty:
         l_players = df_players[df_players["リーグ"] == t_league]["名前"].tolist()
         if "input_rows" not in st.session_state: st.session_state.input_rows = 1
-        entries = []
         for i in range(st.session_state.input_rows):
             with st.container(border=True):
                 c1, c2, c3 = st.columns([2, 1.5, 1.5])
@@ -162,13 +161,12 @@ with tab_input:
                 st.caption(f"換算: {val:,}")
                 entries.append({"名前": p_n, "スコア": val, "日付": datetime.now().strftime("%Y-%m-%d %H:%M"), "リーグ": t_league})
         
-        # 収支チェック
         total_in = sum(e["スコア"] for e in entries)
         check_msg = f'<span class="zero-check-ok">合計 $0$ (OK)</span>' if total_in == 0 else f'<span class="zero-check-ng">合計 {total_in:+,} (不一致)</span>'
         st.markdown(f'<div style="text-align:right; margin-bottom:10px;">収支チェック: {check_msg}</div>', unsafe_allow_html=True)
 
         ca, cs = st.columns(2)
-        if ca.button("➕"): st.session_state.input_rows += 1; st.rerun()
+        if ca.button("➕ 追加"): st.session_state.input_rows += 1; st.rerun()
         if cs.button("🚀 保存"):
             try:
                 conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True))
@@ -176,7 +174,7 @@ with tab_input:
                 for k in list(st.session_state.keys()):
                     if k.startswith(("p_name_", "raw_pts_", "rate_", "cust_")): del st.session_state[k]
                 st.rerun()
-            except: st.error("失敗")
+            except: st.error("保存に失敗しました")
 
 # --- 3. 設定 ---
 with tab_setting:
@@ -187,7 +185,7 @@ with tab_setting:
             if st.button("登録") and pn:
                 conn.update(spreadsheet=url, worksheet="players", data=pd.concat([df_players, pd.DataFrame([{"名前": pn, "リーグ": t_league}])], ignore_index=True)); st.rerun()
     with m2:
-        with st.form("lf", True):
+        with st.form("lf", clear_on_submit=True):
             nl = st.text_input("新リーグ")
             if st.form_submit_button("作成") and nl:
                 conn.update(spreadsheet=url, worksheet="leagues", data=pd.concat([df_leagues, pd.DataFrame({"リーグ名": [nl]})], ignore_index=True)); st.rerun()
