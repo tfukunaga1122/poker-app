@@ -12,10 +12,9 @@ st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout=
 
 # --- 日本時間を取得する関数 ---
 def get_jst_now():
-    # サーバーのUTC時間に9時間を足して日本時間に変換します
     return datetime.utcnow() + timedelta(hours=9)
 
-# --- デザインCSS ---
+# --- デザインCSS（行間を物理限界まで詰める） ---
 st.markdown("""
     <style>
     .stApp { background-color: #0d1117; color: #e6edf3; }
@@ -78,6 +77,7 @@ st.markdown("""
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# --- キャッシュ読み込み ---
 @st.cache_data(ttl=300)
 def load_all_data():
     try:
@@ -90,6 +90,7 @@ def load_all_data():
 
 df_scores, df_players, df_leagues = load_all_data()
 
+# 更新ボタン
 if st.sidebar.button("🔄 データを強制更新"):
     st.cache_data.clear()
     st.rerun()
@@ -130,8 +131,7 @@ with tab_rank:
                 if not df_p.empty:
                     s1, s2, s3, s4 = st.columns(4)
                     s1.metric("平均", f"{df_p['スコア'].mean():.0f}")
-                    sWin = (df_p["スコア"] > 0).mean() * 100
-                    s2.metric("勝率", f"{sWin:.1f}%")
+                    s2.metric("勝率", f"{(df_p['スコア']>0).mean()*100:.0f}%")
                     s3.metric("最勝", f"{df_p['スコア'].max():+}")
                     s4.metric("最負", f"{df_p['スコア'].min():+}")
                     st.line_chart(df_p.set_index("日付")["スコア"].cumsum())
@@ -196,41 +196,54 @@ with tab_rank:
 
 # --- 2. スコア入力 ---
 with tab_input:
-    entries = []
     if t_league and not df_players.empty:
         l_players = df_players[df_players["リーグ"] == t_league]["名前"].tolist()
-        if l_players:
-            if "input_rows" not in st.session_state: st.session_state.input_rows = 1
-            for i in range(st.session_state.input_rows):
-                with st.container(border=True):
-                    c1, c2, c3 = st.columns([2, 1.5, 1.5])
-                    p_n = c1.selectbox("選手", l_players, key=f"p_name_{i}")
-                    raw = c2.number_input("pt", step=10, key=f"raw_pts_{i}")
-                    rate = c3.selectbox("率", ["1/1", "1/5", "1/10", "1/30", "カスタム"], key=f"rate_{i}")
-                    div = 5.0 if rate=="1/5" else (10.0 if rate=="1/10" else (30.0 if rate=="1/30" else (st.number_input("÷", 0.1, 1.0, key=f"cust_{i}") if rate=="カスタム" else 1.0)))
-                    val = math.floor(raw/div)
-                    st.caption(f"換算: {val:,}")
-                    # 保存時も日本時間を使うように修正
-                    entries.append({"名前": p_n, "スコア": val, "日付": get_jst_now().strftime("%Y-%m-%d %H:%M"), "リーグ": t_league})
-            
-            total_in = sum(e["スコア"] for e in entries)
-            check_msg = f'<span class="zero-check-ok">合計 $0$ (OK)</span>' if total_in == 0 else f'<span class="zero-check-ng">合計 {total_in:+,} (不一致)</span>'
-            st.markdown(f'<div style="text-align:right; margin-bottom:10px;">収支チェック: {check_msg}</div>', unsafe_allow_html=True)
+        if "input_rows" not in st.session_state: st.session_state.input_rows = 1
+        entries = []
+        for i in range(st.session_state.input_rows):
+            with st.container(border=True):
+                c1, c2, c3 = st.columns([2, 1.5, 1.5])
+                p_n = c1.selectbox("選手", l_players, key=f"p_name_{i}")
+                raw = c2.number_input("pt", step=10, key=f"raw_pts_{i}")
+                rate = c3.selectbox("率", ["1/1", "1/5", "1/10", "1/30", "カスタム"], key=f"rate_{i}")
+                div = 5.0 if rate=="1/5" else (10.0 if rate=="1/10" else (30.0 if rate=="1/30" else (st.number_input("÷", 0.1, 1.0, key=f"cust_{i}") if rate=="カスタム" else 1.0)))
+                val = math.floor(raw/div)
+                st.caption(f"換算: {val:,}")
+                entries.append({"名前": p_n, "スコア": val, "日付": get_jst_now().strftime("%Y-%m-%d %H:%M"), "リーグ": t_league})
+        
+        total_in = sum(e["スコア"] for e in entries)
+        check_msg = f'<span class="zero-check-ok">合計 $0$ (OK)</span>' if total_in == 0 else f'<span class="zero-check-ng">合計 {total_in:+,} (不一致)</span>'
+        st.markdown(f'<div style="text-align:right; margin-bottom:10px;">収支チェック: {check_msg}</div>', unsafe_allow_html=True)
 
-            ca, cs = st.columns(2)
-            if ca.button("➕"):
-                st.session_state.input_rows += 1
-                st.rerun()
-            if cs.button("🚀 保存"):
-                try:
-                    conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True))
+        ca, cs = st.columns(2)
+        if ca.button("➕"):
+            st.session_state.input_rows += 1
+            st.rerun()
+        if cs.button("🚀 保存"):
+            try:
+                with st.spinner('データを送信中...'):
+                    # 保存処理
+                    updated_df = pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True)
+                    conn.update(spreadsheet=url, worksheet="scores", data=updated_df)
+                    
+                    # 早とちり防止：Google側の更新を少し待つ
+                    time.sleep(2)
                     st.cache_data.clear()
+                    
+                    # フォームのリセット
                     st.session_state.input_rows = 1
                     for k in list(st.session_state.keys()):
                         if k.startswith(("p_name_", "raw_pts_", "rate_", "cust_")): del st.session_state[k]
+                    
+                    st.toast("保存に成功しました！", icon="🚀")
+                    time.sleep(1)
                     st.rerun()
-                except:
-                    st.error("保存失敗")
+            except Exception:
+                # 失敗と出ても保存されているケースが多いため、警告に留めて再読み込みを促す
+                st.warning("通信が不安定ですが、保存されている可能性があります。「設定」タブの履歴を確認してください。")
+                st.cache_data.clear()
+                time.sleep(2)
+                st.rerun()
 
 # --- 3. 設定 ---
 with tab_setting:
@@ -241,6 +254,7 @@ with tab_setting:
             if st.button("登録"):
                 new_p = pd.concat([df_players, pd.DataFrame([{"名前": pn, "リーグ": t_league}])], ignore_index=True)
                 conn.update(spreadsheet=url, worksheet="players", data=new_p)
+                time.sleep(1.5)
                 st.cache_data.clear()
                 st.rerun()
     with m2:
@@ -248,6 +262,7 @@ with tab_setting:
         if st.button("作成"):
             new_l = pd.concat([df_leagues, pd.DataFrame({"リーグ名": [nl]})], ignore_index=True)
             conn.update(spreadsheet=url, worksheet="leagues", data=new_l)
+            time.sleep(1.5)
             st.cache_data.clear()
             st.rerun()
     with m3:
@@ -258,5 +273,6 @@ with tab_setting:
                     c1.write(f"{r.get('名前')}: {int(r.get('スコア')):+,}")
                     if c2.button("🗑️", key=f"d_{i}"):
                         conn.update(spreadsheet=url, worksheet="scores", data=df_scores.drop(i))
+                        time.sleep(1.5)
                         st.cache_data.clear()
                         st.rerun()
