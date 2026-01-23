@@ -10,6 +10,11 @@ url = "https://docs.google.com/spreadsheets/d/1YLXZWQ6XZz04mi0dx9_6WFbm2-yZQGGIX
 
 st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout="centered")
 
+# --- 日本時間を取得する関数 ---
+def get_jst_now():
+    # サーバーのUTC時間に9時間を足して日本時間に変換します
+    return datetime.utcnow() + timedelta(hours=9)
+
 # --- デザインCSS ---
 st.markdown("""
     <style>
@@ -73,7 +78,6 @@ st.markdown("""
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 高速化キャッシュ読み込み ---
 @st.cache_data(ttl=300)
 def load_all_data():
     try:
@@ -92,7 +96,6 @@ if st.sidebar.button("🔄 データを強制更新"):
 
 st.title("♠️ Poker League Master")
 
-# リーグ自動選択
 t_league = st.session_state.get("selected_league")
 if not df_leagues.empty:
     l_list = df_leagues["リーグ名"].tolist()
@@ -115,7 +118,6 @@ with tab_rank:
         df_l["スコア"] = pd.to_numeric(df_l["スコア"], errors='coerce').fillna(0)
         df_l["日付"] = pd.to_datetime(df_l["日付"], errors='coerce')
 
-        # 詳細分析
         if "detail_p" in st.session_state:
             dp = st.session_state.detail_p
             with st.container(border=True):
@@ -128,12 +130,13 @@ with tab_rank:
                 if not df_p.empty:
                     s1, s2, s3, s4 = st.columns(4)
                     s1.metric("平均", f"{df_p['スコア'].mean():.0f}")
-                    s2.metric("勝率", f"{(df_p['スコア']>0).mean()*100:.0f}%")
+                    sWin = (df_p["スコア"] > 0).mean() * 100
+                    s2.metric("勝率", f"{sWin:.1f}%")
                     s3.metric("最勝", f"{df_p['スコア'].max():+}")
                     s4.metric("最負", f"{df_p['スコア'].min():+}")
                     st.line_chart(df_p.set_index("日付")["スコア"].cumsum())
 
-        # 順位変動（最新日を除いた順位との比較）
+        # 順位変動
         latest_date = df_l["日付"].max()
         prev_df = df_l[df_l["日付"] < latest_date]
         rank_map = {}
@@ -142,17 +145,15 @@ with tab_rank:
             prev_rank.index += 1
             rank_map = dict(zip(prev_rank["名前"], prev_rank.index))
 
-        # 【改善】ラジオボタンの選択肢を追加
         period = st.radio("範囲", ["今日", "今月", "前月", "全期間"], horizontal=True, label_visibility="collapsed")
         
-        now = datetime.now()
+        now_jst = get_jst_now()
         if period == "今日":
-            df_f = df_l[df_l["日付"].dt.date == now.date()]
+            df_f = df_l[df_l["日付"].dt.date == now_jst.date()]
         elif period == "今月":
-            df_f = df_l[(df_l["日付"].dt.year == now.year) & (df_l["日付"].dt.month == now.month)]
+            df_f = df_l[(df_l["日付"].dt.year == now_jst.year) & (df_l["日付"].dt.month == now_jst.month)]
         elif period == "前月":
-            # 前月の計算（1月の場合は前年12月）
-            first_of_this_month = now.replace(day=1)
+            first_of_this_month = now_jst.replace(day=1)
             last_of_prev_month = first_of_this_month - timedelta(days=1)
             df_f = df_l[(df_l["日付"].dt.year == last_of_prev_month.year) & (df_l["日付"].dt.month == last_of_prev_month.month)]
         else:
@@ -180,8 +181,9 @@ with tab_rank:
             total = int(df_f["スコア"].sum())
             tc = "#e6edf3" if total == 0 else ("#58a6ff" if total > 0 else "#f85149")
             st.markdown(f'<div class="total-sum-area"><p style="margin:0; font-size:0.7em; color:#8b949e;">合計</p><h3 style="margin:0; color:{tc}; font-size:1.2em;">{total:+,}</h3></div>', unsafe_allow_html=True)
+        else:
+            st.info("データがありません")
         
-        # 殿堂入り
         if not df_l.empty:
             st.markdown(f'''<div class="hall-of-fame"><div style="font-size:0.7em; color:#d4af37; font-weight:bold; margin-bottom:5px;">🏆 {t_league} 記録</div>
                 <div style="display:flex; justify-content:space-around; font-size:0.75em;">
@@ -208,7 +210,8 @@ with tab_input:
                     div = 5.0 if rate=="1/5" else (10.0 if rate=="1/10" else (30.0 if rate=="1/30" else (st.number_input("÷", 0.1, 1.0, key=f"cust_{i}") if rate=="カスタム" else 1.0)))
                     val = math.floor(raw/div)
                     st.caption(f"換算: {val:,}")
-                    entries.append({"名前": p_n, "スコア": val, "日付": datetime.now().strftime("%Y-%m-%d %H:%M"), "リーグ": t_league})
+                    # 保存時も日本時間を使うように修正
+                    entries.append({"名前": p_n, "スコア": val, "日付": get_jst_now().strftime("%Y-%m-%d %H:%M"), "リーグ": t_league})
             
             total_in = sum(e["スコア"] for e in entries)
             check_msg = f'<span class="zero-check-ok">合計 $0$ (OK)</span>' if total_in == 0 else f'<span class="zero-check-ng">合計 {total_in:+,} (不一致)</span>'
