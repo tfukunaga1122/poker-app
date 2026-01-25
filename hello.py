@@ -14,62 +14,64 @@ st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout=
 def get_jst_now():
     return datetime.utcnow() + timedelta(hours=9)
 
-# --- デザインCSS（ボタンの視認性を最優先で固定） ---
+# --- デザインCSS（ボタンの白背景を強制的に排除） ---
 st.markdown("""
     <style>
-    /* 全体背景：深いネイビー */
+    /* 1. アプリ全体の背景をネイビーに固定 */
     .stApp { 
         background-color: #0a1120 !important; 
         color: #e6edf3 !important; 
     }
     
-    /* タブや入力欄 */
+    /* 2. 入力欄やタブの背景 */
     input, select, textarea, div[data-baseweb="select"] { 
         color: #ffffff !important; 
         background-color: #161b22 !important; 
     }
     .stTabs [data-baseweb="tab-list"] { background-color: #111927; border-radius: 10px; padding: 5px; }
     
-    /* ランキング行の背景 */
+    /* 3. ランキング行の背景 */
     .compact-row { 
-        height: 36px !important; 
+        height: 38px !important; 
         background-color: #161e2e !important; 
-        border-bottom: 1px solid #1f2937; 
+        border: 1px solid #1f2937 !important;
         display: flex; align-items: center; overflow: hidden;
-        margin-bottom: 4px !important; border-radius: 6px; padding: 0 10px !important;
+        margin-bottom: 5px !important; border-radius: 8px; padding: 0 10px !important;
     }
     
     div[data-testid="column"] { padding: 0px !important; margin: 0px !important; gap: 0px !important; }
 
-    /* 【最重要修正】名前ボタンの強制着色 */
-    div.stButton > button[key^="user_"] {
-        background-color: #101826 !important; /* 常に濃いネイビー */
-        color: #58a6ff !important;           /* 常にクッキリした青文字 */
-        border: 1px solid #30363d !important; /* 枠線を少し明るく */
-        padding: 0px 15px !important;
+    /* 4. 【最強の修正】ボタンの背景色・文字色をあらゆる状態で固定 */
+    /* 通常時、ホバー時、クリック時すべてにおいて白背景を禁止します */
+    div.stButton > button[key^="user_"], 
+    div.stButton > button[key^="user_"]:focus, 
+    div.stButton > button[key^="user_"]:active,
+    div.stButton > button[key^="user_"]:visited {
+        background-color: #0d1425 !important; /* 濃いネイビー */
+        color: #58a6ff !important;           /* クッキリした青 */
+        border: 1px solid #30363d !important;
+        padding: 4px 15px !important;
         margin: 0 !important;
-        height: 28px !important;
-        line-height: 26px !important;
-        text-align: center !important;
+        height: 30px !important;
+        line-height: 1 !important;
         font-weight: bold !important;
         font-size: 0.95em !important;
         border-radius: 6px !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        opacity: 1 !important;              /* 透明度を無効化 */
+        box-shadow: none !important;
+        transition: all 0.2s ease !important;
     }
     
-    /* ホバー時（マウスを乗せた時）の色の変化 */
+    /* マウスを乗せた時だけ少し明るく */
     div.stButton > button[key^="user_"]:hover {
         background-color: #1c2c4d !important;
         border-color: #58a6ff !important;
-        color: #ffffff !important;           /* ホバー時だけ文字を白くして反応を強調 */
+        color: #ffffff !important;
     }
 
     .rank-num { font-size: 0.9em; color: #ffffff !important; font-weight: bold; }
     .score-num { font-size: 1.0em; font-weight: bold; text-align: right; }
     
+    /* 5. 殿堂入りと合計エリア */
     .total-sum-area { background-color: #161e2e; padding: 10px; border-radius: 10px; border: 1px solid #30363d; text-align: center; margin-top: 10px; }
     </style>
     """, unsafe_allow_html=True)
@@ -140,7 +142,6 @@ with tab_rank:
                 st.markdown('<div class="compact-row">', unsafe_allow_html=True)
                 c_r, c_n, c_v = st.columns([0.15, 0.6, 0.25])
                 c_r.markdown(f'<div class="rank-num">#{i+1}</div>', unsafe_allow_html=True)
-                # ボタンのラベルにHTMLタグが含まれないよう、名前だけを表示
                 if c_n.button(row['名前'], key=f"user_{row['名前']}"):
                     st.session_state.detail_p = row['名前']
                     st.rerun()
@@ -151,7 +152,7 @@ with tab_rank:
             st.markdown(f'<div class="total-sum-area"><p style="margin:0; font-size:0.7em;">合計</p><h3 style="margin:0; color:{tc};">{total:+,}</h3></div>', unsafe_allow_html=True)
         else: st.info("データがありません")
 
-# --- 2. スコア入力（復活） ---
+# --- 2. スコア入力 ---
 with tab_input:
     if t_league and not df_players.empty:
         l_players = df_players[df_players["リーグ"] == t_league]["名前"].tolist()
@@ -197,7 +198,7 @@ with tab_input:
                 st.rerun()
             except: st.error("通信失敗")
 
-# --- 3. 設定（復活） ---
+# --- 3. 設定 ---
 with tab_setting:
     m1, m2, m3 = st.tabs(["👥 選手", "🏆 リーグ", "📜 履歴"])
     with m1:
