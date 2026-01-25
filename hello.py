@@ -14,7 +14,7 @@ st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout=
 def get_jst_now():
     return datetime.utcnow() + timedelta(hours=9)
 
-# --- デザインCSS（コンパクト表示維持） ---
+# --- デザインCSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #0d1117; color: #e6edf3; }
@@ -30,8 +30,6 @@ st.markdown("""
     }
     .rank-num { font-size: 0.75em; color: #8b949e; padding-top: 4px; }
     .score-num { font-size: 0.9em; font-weight: bold; text-align: right; padding-top: 4px; }
-    .change-up { color: #3fb950; font-size: 0.7em; font-weight: bold; }
-    .change-down { color: #f85149; font-size: 0.7em; font-weight: bold; }
     .hall-of-fame { background: linear-gradient(135deg, #1c2128, #161b22); padding: 10px; border-radius: 10px; border: 1px solid #d4af37; margin-top: 15px; }
     .total-sum-area { background-color: #1c2128; padding: 8px; border-radius: 10px; border: 1px solid #30363d; text-align: center; margin-top: 8px; }
     </style>
@@ -82,7 +80,7 @@ with tab_rank:
                 if not df_p.empty:
                     s1, s2, s3, s4 = st.columns(4)
                     s1.metric("平均", f"{df_p['スコア'].mean():.0f}")
-                    s2.metric("勝率", f"{(df_p['スコア']>0).mean()*100:.1f}%")
+                    s2.metric("勝率", f"{(df_p['スコア']>0).mean()*100:.0f}%")
                     s3.metric("最勝", f"{df_p['スコア'].max():+}")
                     s4.metric("最負", f"{df_p['スコア'].min():+}")
                     st.line_chart(df_p.set_index("日付")["スコア"].cumsum())
@@ -110,21 +108,14 @@ with tab_rank:
             tc = "#58a6ff" if total > 0 else ("#f85149" if total < 0 else "#e6edf3")
             st.markdown(f'<div class="total-sum-area"><p style="margin:0; font-size:0.7em;">合計</p><h3 style="margin:0; color:{tc};">{total:+,}</h3></div>', unsafe_allow_html=True)
         else: st.info("データがありません")
-        
-        if not df_l.empty:
-            st.markdown(f'''<div class="hall-of-fame"><div style="font-size:0.7em; color:#d4af37; font-weight:bold;">🏆 記録</div>
-                <div style="display:flex; justify-content:space-around; font-size:0.75em;">
-                <div>最高勝利: <b>{int(df_l["スコア"].max()):+,}</b></div>
-                <div>最大敗北: <b>{int(df_l["スコア"].min()):+,}</b></div>
-                </div></div>''', unsafe_allow_html=True)
 
-# --- 2. スコア入力（バリデーション強化） ---
+# --- 2. スコア入力（バリデーション：0点ブロック & 収支警告） ---
 with tab_input:
     if t_league and not df_players.empty:
         l_players = df_players[df_players["リーグ"] == t_league]["名前"].tolist()
         if "input_rows" not in st.session_state: st.session_state.input_rows = 1
         entries = []
-        has_zero_score = False # 0入力チェック用
+        has_zero_score = False # スコア0（未入力）のチェック
         
         for i in range(st.session_state.input_rows):
             with st.container(border=True):
@@ -135,41 +126,39 @@ with tab_input:
                 div = 5.0 if rate=="1/5" else (10.0 if rate=="1/10" else (30.0 if rate=="1/30" else 1.0))
                 val = math.floor(raw/div)
                 if val == 0: has_zero_score = True
+                st.caption(f"換算: {val:,}")
                 entries.append({"名前": p_n, "スコア": val, "日付": get_jst_now().strftime("%Y-%m-%d %H:%M"), "リーグ": t_league})
         
         total_in = sum(e["スコア"] for e in entries)
         
-        # --- 保存可否の判定ロジック ---
-        is_ready = True
-        error_msg = ""
+        # --- メッセージと保存可否の判定 ---
+        can_save = True
         
-        if total_in != 0:
-            is_ready = False
-            error_msg = f"収支が合いません（残: {total_in:+,}）"
-        elif has_zero_score:
-            is_ready = False
-            error_msg = "スコアが0または未入力の選手がいます"
-            
-        if not is_ready:
-            st.warning(f"⚠️ {error_msg}")
+        if has_zero_score:
+            st.error("❌ スコアが0または未入力の選手がいます（保存できません）")
+            can_save = False
+        elif total_in != 0:
+            st.warning(f"⚠️ 収支が合っていません（差額: {total_in:+,}）が、保存は可能です")
         else:
-            st.success("✅ 収支一致。保存可能です。")
+            st.success("✅ 収支が一致しています")
 
         ca, cs = st.columns(2)
         if ca.button("➕ 行を追加"):
             st.session_state.input_rows += 1
             st.rerun()
             
-        # 判定結果に基づいてボタンを無効化
-        if cs.button("🚀 保存", disabled=not is_ready):
+        # スコア0があるときだけボタンを無効化 (disabled=not can_save)
+        if cs.button("🚀 保存", disabled=not can_save):
             try:
                 with st.spinner('保存中...'):
                     conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True))
-                    time.sleep(1)
+                    time.sleep(1.5)
                     st.cache_data.clear()
                     st.session_state.input_rows = 1
                     for k in list(st.session_state.keys()):
                         if k.startswith(("p_name_", "raw_pts_", "rate_")): del st.session_state[k]
+                    st.toast("保存が完了しました！")
+                    time.sleep(1)
                     st.rerun()
             except: st.error("通信失敗")
 
