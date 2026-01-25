@@ -12,7 +12,7 @@ st.set_page_config(page_title="POKER LEAGUE PRO", page_icon="♠️", layout="ce
 def get_jst_now():
     return datetime.utcnow() + timedelta(hours=9)
 
-# --- プロ仕様・神の調整対応CSS ---
+# --- プロ仕様・全期間「神の調整」対応CSS ---
 st.markdown("""
     <style>
     .stApp { background: radial-gradient(circle at top, #0f172a 0%, #020617 100%) !important; color: #f8fafc !important; }
@@ -20,7 +20,7 @@ st.markdown("""
         font-family: 'Arial Black', sans-serif; font-size: 1.6rem; font-weight: 900; text-align: center;
         background: linear-gradient(to bottom, #fff 20%, #f472b6 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 0 8px #f472b6); margin-bottom: 15px;
+        filter: drop-shadow(0 0 10px #f472b6); margin-bottom: 20px;
     }
     
     .stTabs [data-baseweb="tab-list"] { background-color: rgba(15, 23, 42, 0.9); border-radius: 10px; padding: 2px; border: 1px solid rgba(56, 189, 248, 0.2); }
@@ -32,7 +32,6 @@ st.markdown("""
     }
     .player-name { color: #e2e8f0; font-weight: 600; font-size: 0.8rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-    /* 詳細ボタン：極小 */
     div.stButton > button[key^="detail_"] {
         background: rgba(14, 165, 233, 0.1) !important; border: 1px solid rgba(14, 165, 233, 0.5) !important;
         color: #38bdf8 !important; font-size: 0.6rem !important; padding: 0px 4px !important;
@@ -40,10 +39,11 @@ st.markdown("""
     }
 
     /* 神の調整ボタン：ゴールドデザイン */
-    div.stButton > button[key="god_fix"] {
+    div.stButton > button[key="god_fix_all"] {
         background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%) !important;
         color: white !important; font-weight: bold !important; border: none !important;
-        box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); border-radius: 10px !important;
+        box-shadow: 0 0 15px rgba(251, 191, 36, 0.5); border-radius: 10px !important;
+        margin-top: 10px !important;
     }
 
     .mvp-card { background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(2, 6, 23, 0.6) 100%); border: 1px solid #fbbf24; border-radius: 12px; padding: 10px; margin-bottom: 15px; text-align: center; }
@@ -82,7 +82,7 @@ with st.sidebar:
 
 tab_rank, tab_input, tab_setting = st.tabs(["🏆 ランキング", "💰 スコア入力", "⚙️ 設定"])
 
-# --- 1. ランキング ＆ 神の調整 ---
+# --- 1. ランキング ＆ 全期間の神調整 ---
 with tab_rank:
     if not df_scores.empty:
         df_l = df_scores[df_scores["リーグ"] == t_league].copy()
@@ -90,14 +90,7 @@ with tab_rank:
         df_l["日付"] = pd.to_datetime(df_l["日付"], errors='coerce')
         now_jst = get_jst_now()
 
-        # MVP
-        this_month_df = df_l[(df_l["日付"].dt.year == now_jst.year) & (df_l["日付"].dt.month == now_jst.month)]
-        if not this_month_df.empty:
-            mvp_data = this_month_df.groupby("名前")["スコア"].sum()
-            mvp_name = mvp_data.idxmax(); mvp_val = int(mvp_data.max())
-            st.markdown(f'''<div class="mvp-card"><span style="color:#fbbf24; font-size:0.7rem; font-weight:bold;">✨ 今月のMVP ✨</span><br><span style="font-size:1.1rem; font-weight:900;">{mvp_name}</span> <span style="color:#4ade80;">({mvp_val:+})</span></div>''', unsafe_allow_html=True)
-
-        # 詳細ダッシュボード
+        # 個人詳細ダッシュボード
         if "detail_p" in st.session_state:
             dp = st.session_state.detail_p
             df_p = df_l[df_l["名前"] == dp].sort_values("日付")
@@ -114,7 +107,7 @@ with tab_rank:
                     st.line_chart(df_p.set_index("日付")["スコア"].cumsum(), height=150)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-        period = st.radio("期間", ["今日", "今月", "前月", "全期間"], horizontal=True, label_visibility="collapsed")
+        period = st.radio("表示期間", ["今日", "今月", "前月", "全期間"], index=0, horizontal=True, label_visibility="collapsed")
         if period == "今日": df_f = df_l[df_l["日付"].dt.date == now_jst.date()]
         elif period == "今月": df_f = df_l[(df_l["日付"].dt.year == now_jst.year) & (df_l["日付"].dt.month == now_jst.month)]
         elif period == "前月":
@@ -135,35 +128,37 @@ with tab_rank:
                     if st.button("詳細", key=f"detail_{row['名前']}"): st.session_state.detail_p = row['名前']; st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            # --- スコア監視モニター ＆ 神の調整 ---
-            # ここでは「選択中の期間（df_f）」ではなく「リーグ全体の収支（df_l）」で監視します
+            # --- 全期間対応・スコア監視モニター ＆ 神の調整 ---
+            # 常に全期間の累計差額を表示
             total_diff = int(df_l["スコア"].sum())
+            
             st.markdown(f'<div class="monitor-panel">', unsafe_allow_html=True)
             m_color = "#4ade80" if total_diff == 0 else "#fb7185"
-            st.markdown(f'<span style="color:#94a3b8; font-size:0.7rem;">現在のリーグ総収支 差額</span><br><h2 style="color:{m_color}; margin:0;">{total_diff:+}</h2>', unsafe_allow_html=True)
+            st.markdown(f'<span style="color:#94a3b8; font-size:0.7rem;">📊 全期間の収支 差額モニター</span><br><h2 style="color:{m_color}; margin:0;">{total_diff:+}</h2>', unsafe_allow_html=True)
             
             if total_diff != 0:
-                if st.button("⚖️ 神の調整を実行", key="god_fix", use_container_width=True):
+                if st.button("⚖️ 神の調整 (全期間対象)", key="god_fix_all", use_container_width=True):
                     try:
-                        # 最新の全データを取得（削除トラブル回避のため）
-                        all_data = df_scores.copy()
-                        # 調整対象の特定（現在の期間内の順位から）
-                        top_p = rank_df.iloc[0]["名前"]
-                        last_p = rank_df.iloc[-1]["名前"]
+                        # 全期間のランキングから1位と最下位を特定
+                        all_rank = df_l.groupby("名前")["スコア"].sum().sort_values(ascending=False)
+                        top_p = all_rank.index[0]
+                        last_p = all_rank.index[-1]
                         
-                        adjustment = -total_diff # 差額を打ち消す値
-                        target = last_p if total_diff > 0 else top_p # 余ってれば最下位に加点、足りなければ1位から減点
+                        adjustment = -total_diff
+                        # 余り(+)なら最下位に付与、不足(-)なら1位から徴収
+                        target = last_p if total_diff > 0 else top_p
                         
                         new_row = pd.DataFrame([{
                             "名前": target, "スコア": adjustment, "リーグ": t_league,
                             "日付": get_jst_now().strftime("%Y-%m-%d %H:%M")
                         }])
-                        conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([all_data, new_row], ignore_index=True))
-                        st.cache_data.clear(); st.success(f"神の調整完了: {target} に {adjustment:+}pt 適用しました"); time.sleep(1); st.rerun()
-                    except: st.error("調整に失敗しました。同期し直してください。")
+                        conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, new_row], ignore_index=True))
+                        st.cache_data.clear(); st.success(f"全期間調整完了: {target} に {adjustment:+}pt 適用"); time.sleep(1); st.rerun()
+                    except: st.error("プレイヤー情報の取得に失敗しました。")
             st.markdown('</div>', unsafe_allow_html=True)
+        else: st.info("記録がありません。")
 
-# --- 2. スコア入力（10単位切り捨て） ---
+# --- 2. スコア入力（1の位切り捨て・初期1名） ---
 with tab_input:
     if not df_players.empty:
         l_players = df_players[df_players["リーグ"] == t_league]["名前"].tolist()
@@ -177,6 +172,7 @@ with tab_input:
                 raw = c2.number_input("pt", step=10, key=f"raw_pts_{i}")
                 rate = c3.selectbox("率", ["1/1", "1/5", "1/10", "1/30"], key=f"rate_{i}")
                 div = 1.0; div = 5.0 if rate=="1/5" else (10.0 if rate=="1/10" else (30.0 if rate=="1/30" else 1.0))
+                # 10単位切り捨て
                 val = int(math.trunc(raw / div / 10) * 10)
                 if val == 0: has_zero = True
                 st.caption(f"換算: {val:+}")
@@ -197,7 +193,7 @@ with tab_setting:
     m1, m2, m3 = st.tabs(["👤 登録", "🏆 リーグ", "📜 削除"])
     with m1:
         pn = st.text_input("選手名")
-        if st.button("追加") and pn:
+        if st.button("登録") and pn:
             conn.update(spreadsheet=url, worksheet="players", data=pd.concat([df_players, pd.DataFrame([{"名前": pn, "リーグ": t_league}])], ignore_index=True))
             st.cache_data.clear(); st.rerun()
     with m2:
