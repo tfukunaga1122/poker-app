@@ -14,50 +14,75 @@ st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout=
 def get_jst_now():
     return datetime.utcnow() + timedelta(hours=9)
 
-# --- デザインCSS（PC版の視認性を大幅改善） ---
+# --- デザインCSS（背景をネイビーに変更し視認性を強化） ---
 st.markdown("""
     <style>
-    .stApp { background-color: #0d1117; color: #e6edf3; }
-    input, select, textarea, div[data-baseweb="select"] { color: #ffffff !important; background-color: #1c2128 !important; }
-    .stTabs [data-baseweb="tab-list"] { background-color: #161b22; border-radius: 10px; padding: 5px; }
+    /* 全体背景を深いネイビーに */
+    .stApp { 
+        background-color: #0a1120 !important; 
+        color: #e6edf3; 
+    }
+    
+    input, select, textarea, div[data-baseweb="select"] { 
+        color: #ffffff !important; 
+        background-color: #161b22 !important; 
+    }
+    
+    .stTabs [data-baseweb="tab-list"] { background-color: #111927; border-radius: 10px; padding: 5px; }
     .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: bold; font-size: 14px; }
     
-    /* ランキング行の背景と境界 */
+    /* 【改善】ランキング行：背景をミッドナイトブルーにし、視認性を向上 */
     .compact-row { 
-        height: 28px !important; 
-        border-bottom: 1px solid #30363d; 
+        height: 30px !important; 
+        background-color: #161e2e !important; /* 行の背景をネイビーに */
+        border-bottom: 1px solid #1f2937; 
         display: flex; 
         align-items: center; 
-        overflow: hidden; 
+        overflow: hidden;
+        margin-bottom: 2px !important; /* 行間の隙間 */
+        border-radius: 4px; /* 角丸 */
+        padding: 0 10px !important;
     }
     
     div[data-testid="column"] { padding: 0px !important; margin: 0px !important; gap: 0px !important; }
 
-    /* 【改善】名前ボタン：鮮やかな青色にし、マウスホバーでアンダーライン */
+    /* 名前ボタン：色は維持しつつホバー効果を強化 */
     div.stButton > button[key^="user_"] {
         background: none !important;
         border: none !important;
         padding: 0 !important;
         margin: 0 !important;
-        color: #58a6ff !important; /* リンクのような青色 */
-        height: 28px !important;
-        line-height: 28px !important;
+        color: #58a6ff !important; 
+        height: 30px !important;
+        line-height: 30px !important;
         text-align: left !important;
         font-weight: bold !important;
         font-size: 1.0em !important;
-        transition: color 0.2s;
     }
     div.stButton > button[key^="user_"]:hover {
-        color: #79c0ff !important; /* ホバーで少し明るく */
+        color: #79c0ff !important;
         text-decoration: underline !important;
     }
 
-    /* 【改善】順位とスコア：クッキリした色に変更 */
-    .rank-num { font-size: 0.8em; color: #f0f6fc; padding-top: 4px; font-weight: 500; }
-    .score-num { font-size: 0.95em; font-weight: bold; text-align: right; padding-top: 4px; }
+    /* クッキリした白に変更 */
+    .rank-num { font-size: 0.85em; color: #ffffff; padding-top: 2px; font-weight: bold; }
+    .score-num { font-size: 1.0em; font-weight: bold; text-align: right; padding-top: 2px; }
     
-    .hall-of-fame { background: linear-gradient(135deg, #1c2128, #161b22); padding: 10px; border-radius: 10px; border: 1px solid #d4af37; margin-top: 15px; }
-    .total-sum-area { background-color: #1c2128; padding: 8px; border-radius: 10px; border: 1px solid #30363d; text-align: center; margin-top: 8px; }
+    .hall-of-fame { 
+        background: linear-gradient(135deg, #161e2e, #0a1120); 
+        padding: 10px; 
+        border-radius: 10px; 
+        border: 1px solid #d4af37; 
+        margin-top: 15px; 
+    }
+    .total-sum-area { 
+        background-color: #161e2e; 
+        padding: 8px; 
+        border-radius: 10px; 
+        border: 1px solid #30363d; 
+        text-align: center; 
+        margin-top: 8px; 
+    }
     </style>
     """, unsafe_allow_html=True)
 
