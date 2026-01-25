@@ -12,53 +12,44 @@ st.set_page_config(page_title="POKER LEAGUE PRO", page_icon="♠️", layout="ce
 def get_jst_now():
     return datetime.utcnow() + timedelta(hours=9)
 
-# --- VIPダッシュボード対応・極小ボタンデザインCSS ---
+# --- プロ仕様・ネオン & モバイル最適化CSS ---
 st.markdown("""
     <style>
     .stApp { background: radial-gradient(circle at top, #0f172a 0%, #020617 100%) !important; color: #f8fafc !important; }
-    
     .neon-title {
-        font-family: 'Arial Black', sans-serif; font-size: 1.8rem; font-weight: 900; text-align: center;
+        font-family: 'Arial Black', sans-serif; font-size: 1.6rem; font-weight: 900; text-align: center;
         background: linear-gradient(to bottom, #fff 20%, #f472b6 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 0 10px #f472b6); margin-bottom: 20px;
-    }
-
-    /* タブ */
-    .stTabs [data-baseweb="tab-list"] { background-color: rgba(15, 23, 42, 0.9); border-radius: 12px; padding: 4px; border: 1px solid rgba(56, 189, 248, 0.2); }
-    .stTabs [data-baseweb="tab"] { color: #64748b; font-weight: bold; font-size: 13px; height: 36px; }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] { background: #0ea5e9 !important; color: white !important; border-radius: 8px; }
-
-    /* ランキング行 */
-    .rank-card {
-        background: rgba(30, 41, 59, 0.4); border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 6px 8px; margin-bottom: 2px; display: flex; align-items: center; justify-content: space-between;
+        filter: drop-shadow(0 0 8px #f472b6); margin-bottom: 15px;
     }
     
-    .player-name { color: #e2e8f0; font-weight: 600; font-size: 0.85rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    /* タブ・ボタンの極小化 */
+    .stTabs [data-baseweb="tab-list"] { background-color: rgba(15, 23, 42, 0.9); border-radius: 10px; padding: 2px; border: 1px solid rgba(56, 189, 248, 0.2); }
+    .stTabs [data-baseweb="tab"] { color: #64748b; font-size: 12px; height: 32px; }
+    
+    .rank-card {
+        background: rgba(30, 41, 59, 0.4); border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 4px 6px; margin-bottom: 2px; display: flex; align-items: center;
+    }
+    .player-name { color: #e2e8f0; font-weight: 600; font-size: 0.8rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-    /* 【改善】詳細ボタン：文字ギリギリのサイズ */
+    /* 詳細ボタン：文字幅ギリギリ */
     div.stButton > button[key^="detail_"] {
-        background: rgba(14, 165, 233, 0.05) !important; border: 1px solid rgba(14, 165, 233, 0.5) !important;
-        color: #38bdf8 !important; font-size: 0.65rem !important; 
-        padding: 0px 4px !important; /* 横余白を最小限に */
-        height: 20px !important; min-height: 20px !important; /* 高さを圧縮 */
-        line-height: 18px !important; border-radius: 3px !important; 
-        width: fit-content !important; min-width: 0px !important; /* 幅の制限を解除 */
+        background: rgba(14, 165, 233, 0.1) !important; border: 1px solid rgba(14, 165, 233, 0.5) !important;
+        color: #38bdf8 !important; font-size: 0.6rem !important; padding: 0px 4px !important;
+        height: 18px !important; min-height: 18px !important; line-height: 16px !important;
+        border-radius: 3px !important; width: fit-content !important;
     }
-    div.stButton > button[key^="detail_"]:active { background: #38bdf8 !important; color: #fff !important; }
 
-    /* ダッシュボードカード */
-    .db-card {
-        background: rgba(15, 23, 42, 0.9); border: 1px solid #0ea5e9; border-radius: 15px;
-        padding: 15px; margin: 10px 0; box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
-    }
-    .stat-val { color: #38bdf8; font-weight: 800; font-size: 1.1rem; }
-    .stat-label { color: #94a3b8; font-size: 0.7rem; }
+    /* ダッシュボード・MVPカード */
+    .mvp-card { background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(2, 6, 23, 0.6) 100%); border: 1px solid #fbbf24; border-radius: 12px; padding: 10px; margin-bottom: 15px; text-align: center; }
+    .db-card { background: rgba(15, 23, 42, 0.95); border: 1px solid #0ea5e9; border-radius: 15px; padding: 12px; margin: 10px 0; box-shadow: 0 0 15px rgba(14, 165, 233, 0.3); }
+    .stat-box { text-align: center; padding: 5px; border-radius: 8px; background: rgba(255,255,255,0.03); }
+    .stat-val { color: #38bdf8; font-weight: 800; font-size: 0.9rem; }
+    .stat-label { color: #94a3b8; font-size: 0.6rem; text-transform: uppercase; }
 
-    .rank-num { color: #fbbf24; font-weight: 900; font-size: 0.8rem; min-width: 22px; }
-    .score-plus { color: #4ade80; font-weight: 700; font-size: 0.9rem; text-align: right; }
-    .score-minus { color: #fb7185; font-weight: 700; font-size: 0.9rem; text-align: right; }
+    .score-plus { color: #4ade80; font-weight: 700; font-size: 0.85rem; text-align: right; }
+    .score-minus { color: #fb7185; font-weight: 700; font-size: 0.85rem; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -81,39 +72,44 @@ with st.sidebar:
     st.markdown("### 🏟️ 設定")
     if not df_leagues.empty:
         t_league = st.sidebar.selectbox("リーグ", df_leagues["リーグ名"].tolist())
-    if st.button("🔄 同期"):
-        st.cache_data.clear(); st.rerun()
+    if st.button("🔄 同期"): st.cache_data.clear(); st.rerun()
 
 tab_rank, tab_input, tab_setting = st.tabs(["🏆 ランキング", "💰 スコア入力", "⚙️ 設定"])
 
-# --- 1. ランキング ---
+# --- 1. ランキング ＆ 分析ダッシュボード ---
 with tab_rank:
     if not df_scores.empty:
         df_l = df_scores[df_scores["リーグ"] == t_league].copy()
         df_l["スコア"] = pd.to_numeric(df_l["スコア"], errors='coerce').fillna(0)
         df_l["日付"] = pd.to_datetime(df_l["日付"], errors='coerce')
+        now_jst = get_jst_now()
 
-        # ダッシュボード表示
+        # MVP表示
+        this_month_df = df_l[(df_l["日付"].dt.year == now_jst.year) & (df_l["日付"].dt.month == now_jst.month)]
+        if not this_month_df.empty:
+            mvp_data = this_month_df.groupby("名前")["スコア"].sum()
+            mvp_name = mvp_data.idxmax()
+            mvp_val = mvp_data.max()
+            st.markdown(f'''<div class="mvp-card"><span style="color:#fbbf24; font-size:0.7rem; font-weight:bold;">✨ 今月のMVP ✨</span><br><span style="font-size:1.1rem; font-weight:900;">{mvp_name}</span> <span style="color:#4ade80;">(+{int(mvp_val)})</span></div>''', unsafe_allow_html=True)
+
+        # 個人分析
         if "detail_p" in st.session_state:
             dp = st.session_state.detail_p
             df_p = df_l[df_l["名前"] == dp].sort_values("日付")
             with st.container():
                 st.markdown(f'<div class="db-card">', unsafe_allow_html=True)
-                c_head, c_close = st.columns([5, 1])
-                c_head.markdown(f"### 💎 {dp} の分析")
-                if c_close.button("✖", key="close_db"):
-                    del st.session_state.detail_p; st.rerun()
+                ch, cl = st.columns([5, 1])
+                ch.markdown(f"#### 💎 {dp} の分析")
+                if cl.button("✖", key="close_db"): del st.session_state.detail_p; st.rerun()
                 if not df_p.empty:
                     k1, k2, k3 = st.columns(3)
-                    k1.markdown(f'<div class="stat-label">勝率</div><div class="stat-val">{(df_p["スコア"] > 0).mean()*100:.1f}%</div>', unsafe_allow_html=True)
-                    k2.markdown(f'<div class="stat-label">平均</div><div class="stat-val">{df_p["スコア"].mean():+.1f}</div>', unsafe_allow_html=True)
-                    k3.markdown(f'<div class="stat-label">数</div><div class="stat-val">{len(df_p)}回</div>', unsafe_allow_html=True)
-                    st.line_chart(df_p.set_index("日付")["スコア"].cumsum())
+                    k1.markdown(f'<div class="stat-box"><div class="stat-label">勝率</div><div class="stat-val">{(df_p["スコア"] > 0).mean()*100:.1f}%</div></div>', unsafe_allow_html=True)
+                    k2.markdown(f'<div class="stat-box"><div class="stat-label">安定感</div><div class="stat-val">{"高" if df_p["スコア"].std() < 50 else "普"}</div></div>', unsafe_allow_html=True)
+                    k3.markdown(f'<div class="stat-box"><div class="stat-label">最高勝利</div><div class="stat-val">+{int(df_p["スコア"].max())}</div></div>', unsafe_allow_html=True)
+                    st.line_chart(df_p.set_index("日付")["スコア"].cumsum(), height=150)
                 st.markdown('</div>', unsafe_allow_html=True)
 
         period = st.segmented_control("期間", ["今日", "今月", "前月", "全期間"], default="今月")
-        
-        now_jst = get_jst_now()
         if period == "今日": df_f = df_l[df_l["日付"].dt.date == now_jst.date()]
         elif period == "今月": df_f = df_l[(df_l["日付"].dt.year == now_jst.year) & (df_l["日付"].dt.month == now_jst.month)]
         elif period == "前月":
@@ -126,23 +122,23 @@ with tab_rank:
             for i, row in rank_df.iterrows():
                 v = int(row['スコア'])
                 style = "score-plus" if v >= 0 else "score-minus"
-                
                 st.markdown(f'<div class="rank-card">', unsafe_allow_html=True)
-                c_rank, c_name, c_score, c_btn = st.columns([0.1, 0.5, 0.25, 0.15]) # 比率を微調整
-                c_rank.markdown(f'<div class="rank-num">#{i+1}</div>', unsafe_allow_html=True)
-                c_name.markdown(f'<div class="player-name">{row["名前"]}</div>', unsafe_allow_html=True)
-                c_score.markdown(f'<div class="{style}">{v:+,}</div>', unsafe_allow_html=True)
-                with c_btn:
-                    if st.button("詳細", key=f"detail_{row['名前']}", use_container_width=False):
-                        st.session_state.detail_p = row['名前']; st.rerun()
+                c_r, c_n, c_s, c_b = st.columns([0.1, 0.45, 0.3, 0.15])
+                c_r.markdown(f'<div class="rank-num">#{i+1}</div>', unsafe_allow_html=True)
+                c_n.markdown(f'<div class="player-name">{row["名前"]}</div>', unsafe_allow_html=True)
+                c_s.markdown(f'<div class="{style}">{v:+,}</div>', unsafe_allow_html=True)
+                with c_b:
+                    if st.button("詳細", key=f"detail_{row['名前']}"): st.session_state.detail_p = row['名前']; st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
         else: st.info("記録なし")
 
-# --- 2. スコア入力 ---
+# --- 2. スコア入力（初期表示1名 ＆ ボタン名変更） ---
 with tab_input:
     if not df_players.empty:
         l_players = df_players[df_players["リーグ"] == t_league]["名前"].tolist()
-        if "input_rows" not in st.session_state: st.session_state.input_rows = 2
+        # 初期状態を1名に変更
+        if "input_rows" not in st.session_state: st.session_state.input_rows = 1
+        
         entries = []
         has_zero = False
         for i in range(st.session_state.input_rows):
@@ -159,23 +155,24 @@ with tab_input:
         total_in = sum(e["スコア"] for e in entries)
         can_save = not has_zero
         
-        if has_zero: st.error("❌ 0点の選手がいます")
-        elif total_in != 0: st.warning(f"⚖️ 差額: {total_in:+,}")
+        if has_zero: st.error("❌ 0点入力不可")
+        elif total_in != 0: st.warning(f"⚖️ 差: {total_in:+,}")
         else: st.success("✅ 収支一致")
 
+        # ボタン名称をアップデート
         c_add, c_del, c_save = st.columns([1, 1, 2])
-        if c_add.button("➕"): st.session_state.input_rows += 1; st.rerun()
-        if c_del.button("➖", disabled=st.session_state.input_rows <= 1): st.session_state.input_rows -= 1; st.rerun()
-        if c_save.button("🚀 保存", disabled=not can_save, use_container_width=True):
+        if c_add.button("➕ プレイヤー追加"): st.session_state.input_rows += 1; st.rerun()
+        if c_del.button("➖ プレイヤー削除", disabled=st.session_state.input_rows <= 1): st.session_state.input_rows -= 1; st.rerun()
+        if c_save.button("🚀 記録を保存", disabled=not can_save, use_container_width=True):
             conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True))
-            st.cache_data.clear(); st.session_state.input_rows = 2; st.toast("Success!"); time.sleep(1); st.rerun()
+            st.cache_data.clear(); st.session_state.input_rows = 1; st.toast("Success!"); time.sleep(1); st.rerun()
 
 # --- 3. 設定 ---
 with tab_setting:
-    m1, m2, m3 = st.tabs(["👤 選手", "🏆 リーグ", "📜 履歴"])
+    m1, m2, m3 = st.tabs(["👤 登録", "🏆 リーグ", "📜 削除"])
     with m1:
         pn = st.text_input("選手名")
-        if st.button("登録") and pn:
+        if st.button("追加") and pn:
             conn.update(spreadsheet=url, worksheet="players", data=pd.concat([df_players, pd.DataFrame([{"名前": pn, "リーグ": t_league}])], ignore_index=True))
             st.cache_data.clear(); st.rerun()
     with m2:
