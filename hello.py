@@ -14,22 +14,48 @@ st.set_page_config(page_title="Poker League Master", page_icon="♠️", layout=
 def get_jst_now():
     return datetime.utcnow() + timedelta(hours=9)
 
-# --- デザインCSS ---
+# --- デザインCSS（PC版の視認性を大幅改善） ---
 st.markdown("""
     <style>
     .stApp { background-color: #0d1117; color: #e6edf3; }
     input, select, textarea, div[data-baseweb="select"] { color: #ffffff !important; background-color: #1c2128 !important; }
     .stTabs [data-baseweb="tab-list"] { background-color: #161b22; border-radius: 10px; padding: 5px; }
     .stTabs [data-baseweb="tab"] { color: #8b949e; font-weight: bold; font-size: 14px; }
-    .compact-row { height: 24px !important; border-bottom: 1px solid #21262d; display: flex; align-items: center; overflow: hidden; }
-    div[data-testid="column"] { padding: 0px !important; margin: 0px !important; gap: 0px !important; }
-    div.stButton > button[key^="user_"] {
-        background: none !important; border: none !important; padding: 0 !important; margin: 0 !important;
-        color: #58a6ff !important; height: 24px !important; line-height: 24px !important;
-        text-align: left !important; font-weight: bold !important; font-size: 0.9em !important;
+    
+    /* ランキング行の背景と境界 */
+    .compact-row { 
+        height: 28px !important; 
+        border-bottom: 1px solid #30363d; 
+        display: flex; 
+        align-items: center; 
+        overflow: hidden; 
     }
-    .rank-num { font-size: 0.75em; color: #8b949e; padding-top: 4px; }
-    .score-num { font-size: 0.9em; font-weight: bold; text-align: right; padding-top: 4px; }
+    
+    div[data-testid="column"] { padding: 0px !important; margin: 0px !important; gap: 0px !important; }
+
+    /* 【改善】名前ボタン：鮮やかな青色にし、マウスホバーでアンダーライン */
+    div.stButton > button[key^="user_"] {
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        color: #58a6ff !important; /* リンクのような青色 */
+        height: 28px !important;
+        line-height: 28px !important;
+        text-align: left !important;
+        font-weight: bold !important;
+        font-size: 1.0em !important;
+        transition: color 0.2s;
+    }
+    div.stButton > button[key^="user_"]:hover {
+        color: #79c0ff !important; /* ホバーで少し明るく */
+        text-decoration: underline !important;
+    }
+
+    /* 【改善】順位とスコア：クッキリした色に変更 */
+    .rank-num { font-size: 0.8em; color: #f0f6fc; padding-top: 4px; font-weight: 500; }
+    .score-num { font-size: 0.95em; font-weight: bold; text-align: right; padding-top: 4px; }
+    
     .hall-of-fame { background: linear-gradient(135deg, #1c2128, #161b22); padding: 10px; border-radius: 10px; border: 1px solid #d4af37; margin-top: 15px; }
     .total-sum-area { background-color: #1c2128; padding: 8px; border-radius: 10px; border: 1px solid #30363d; text-align: center; margin-top: 8px; }
     </style>
@@ -80,7 +106,7 @@ with tab_rank:
                 if not df_p.empty:
                     s1, s2, s3, s4 = st.columns(4)
                     s1.metric("平均", f"{df_p['スコア'].mean():.0f}")
-                    s2.metric("勝率", f"{(df_p['スコア']>0).mean()*100:.0f}%")
+                    s2.metric("勝率", f"{(df_p['スコア']>0).mean()*100:.1f}%")
                     s3.metric("最勝", f"{df_p['スコア'].max():+}")
                     s4.metric("最負", f"{df_p['スコア'].min():+}")
                     st.line_chart(df_p.set_index("日付")["スコア"].cumsum())
@@ -108,79 +134,3 @@ with tab_rank:
             tc = "#58a6ff" if total > 0 else ("#f85149" if total < 0 else "#e6edf3")
             st.markdown(f'<div class="total-sum-area"><p style="margin:0; font-size:0.7em;">合計</p><h3 style="margin:0; color:{tc};">{total:+,}</h3></div>', unsafe_allow_html=True)
         else: st.info("データがありません")
-
-# --- 2. スコア入力（バリデーション：0点ブロック & 収支警告） ---
-with tab_input:
-    if t_league and not df_players.empty:
-        l_players = df_players[df_players["リーグ"] == t_league]["名前"].tolist()
-        if "input_rows" not in st.session_state: st.session_state.input_rows = 1
-        entries = []
-        has_zero_score = False # スコア0（未入力）のチェック
-        
-        for i in range(st.session_state.input_rows):
-            with st.container(border=True):
-                c1, c2, c3 = st.columns([2, 1.5, 1.5])
-                p_n = c1.selectbox("選手", l_players, key=f"p_name_{i}")
-                raw = c2.number_input("pt", step=10, key=f"raw_pts_{i}")
-                rate = c3.selectbox("率", ["1/1", "1/5", "1/10", "1/30"], key=f"rate_{i}")
-                div = 5.0 if rate=="1/5" else (10.0 if rate=="1/10" else (30.0 if rate=="1/30" else 1.0))
-                val = math.floor(raw/div)
-                if val == 0: has_zero_score = True
-                st.caption(f"換算: {val:,}")
-                entries.append({"名前": p_n, "スコア": val, "日付": get_jst_now().strftime("%Y-%m-%d %H:%M"), "リーグ": t_league})
-        
-        total_in = sum(e["スコア"] for e in entries)
-        
-        # --- メッセージと保存可否の判定 ---
-        can_save = True
-        
-        if has_zero_score:
-            st.error("❌ スコアが0または未入力の選手がいます（保存できません）")
-            can_save = False
-        elif total_in != 0:
-            st.warning(f"⚠️ 収支が合っていません（差額: {total_in:+,}）が、保存は可能です")
-        else:
-            st.success("✅ 収支が一致しています")
-
-        ca, cs = st.columns(2)
-        if ca.button("➕ 行を追加"):
-            st.session_state.input_rows += 1
-            st.rerun()
-            
-        # スコア0があるときだけボタンを無効化 (disabled=not can_save)
-        if cs.button("🚀 保存", disabled=not can_save):
-            try:
-                with st.spinner('保存中...'):
-                    conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True))
-                    time.sleep(1.5)
-                    st.cache_data.clear()
-                    st.session_state.input_rows = 1
-                    for k in list(st.session_state.keys()):
-                        if k.startswith(("p_name_", "raw_pts_", "rate_")): del st.session_state[k]
-                    st.toast("保存が完了しました！")
-                    time.sleep(1)
-                    st.rerun()
-            except: st.error("通信失敗")
-
-# --- 3. 設定 ---
-with tab_setting:
-    m1, m2, m3 = st.tabs(["👥 選手", "🏆 リーグ", "📜 履歴"])
-    with m1:
-        pn = st.text_input("選手名登録")
-        if st.button("登録") and pn:
-            conn.update(spreadsheet=url, worksheet="players", data=pd.concat([df_players, pd.DataFrame([{"名前": pn, "リーグ": t_league}])], ignore_index=True))
-            st.cache_data.clear(); st.rerun()
-    with m2:
-        nl = st.text_input("新リーグ作成")
-        if st.button("作成") and nl:
-            conn.update(spreadsheet=url, worksheet="leagues", data=pd.concat([df_leagues, pd.DataFrame({"リーグ名": [nl]})], ignore_index=True))
-            st.cache_data.clear(); st.rerun()
-    with m3:
-        if not df_scores.empty:
-            for i, r in df_scores.iloc[::-1].head(10).iterrows():
-                with st.container(border=True):
-                    c1, c2 = st.columns([5, 1])
-                    c1.write(f"{r.get('名前')}: {int(r.get('スコア')):+,}")
-                    if c2.button("🗑️", key=f"d_{i}"):
-                        conn.update(spreadsheet=url, worksheet="scores", data=df_scores.drop(i))
-                        st.cache_data.clear(); st.rerun()
