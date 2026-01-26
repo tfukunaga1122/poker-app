@@ -12,7 +12,7 @@ st.set_page_config(page_title="POKER LEAGUE PRO", page_icon="♠️", layout="ce
 def get_jst_now():
     return datetime.utcnow() + timedelta(hours=9)
 
-# --- プロ仕様・VIPネオンデザインCSS ---
+# --- プロ仕様・全期間調整モバイルCSS ---
 st.markdown("""
     <style>
     .stApp { background: radial-gradient(circle at top, #0f172a 0%, #020617 100%) !important; color: #f8fafc !important; }
@@ -38,16 +38,13 @@ st.markdown("""
         height: 18px !important; min-height: 18px !important; border-radius: 3px !important; width: fit-content !important;
     }
 
-    /* 神の調整ボタン：ゴールドグラデーション */
-    div.stButton > button[key="god_fix_v2"] {
+    div.stButton > button[key="god_fix_master"] {
         background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%) !important;
         color: white !important; font-weight: bold !important; border: none !important;
         box-shadow: 0 0 15px rgba(251, 191, 36, 0.5); border-radius: 10px !important;
     }
 
-    .mvp-card { background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(2, 6, 23, 0.6) 100%); border: 1px solid #fbbf24; border-radius: 12px; padding: 10px; margin-bottom: 15px; text-align: center; }
     .db-card { background: rgba(15, 23, 42, 0.95); border: 1px solid #0ea5e9; border-radius: 15px; padding: 12px; margin: 10px 0; box-shadow: 0 0 15px rgba(14, 165, 233, 0.3); }
-    
     .score-plus { color: #4ade80; font-weight: 700; font-size: 0.85rem; text-align: right; }
     .score-minus { color: #fb7185; font-weight: 700; font-size: 0.85rem; text-align: right; }
     
@@ -81,7 +78,7 @@ with st.sidebar:
 
 tab_rank, tab_input, tab_setting = st.tabs(["🏆 ランキング", "💰 スコア入力", "⚙️ 設定"])
 
-# --- 1. ランキング ＆ 新・神の調整 ---
+# --- 1. ランキング ＆ マスター神調整 ---
 with tab_rank:
     if not df_scores.empty:
         df_l = df_scores[df_scores["リーグ"] == t_league].copy()
@@ -89,14 +86,7 @@ with tab_rank:
         df_l["日付"] = pd.to_datetime(df_l["日付"], errors='coerce')
         now_jst = get_jst_now()
 
-        # MVP表示
-        this_month_df = df_l[(df_l["日付"].dt.year == now_jst.year) & (df_l["日付"].dt.month == now_jst.month)]
-        if not this_month_df.empty:
-            mvp_data = this_month_df.groupby("名前")["スコア"].sum()
-            mvp_name = mvp_data.idxmax(); mvp_val = int(mvp_data.max())
-            st.markdown(f'''<div class="mvp-card"><span style="color:#fbbf24; font-size:0.7rem; font-weight:bold;">✨ 今月のMVP ✨</span><br><span style="font-size:1.1rem; font-weight:900;">{mvp_name}</span> <span style="color:#4ade80;">({mvp_val:+})</span></div>''', unsafe_allow_html=True)
-
-        # 詳細ダッシュボード
+        # 詳細分析（ダッシュボード）
         if "detail_p" in st.session_state:
             dp = st.session_state.detail_p
             df_p = df_l[df_l["名前"] == dp].sort_values("日付")
@@ -109,12 +99,18 @@ with tab_rank:
                     k1, k2, k3 = st.columns(3)
                     k1.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">勝率</div><div style="color:#38bdf8; font-weight:800;">{(df_p["スコア"] > 0).mean()*100:.1f}%</div></div>', unsafe_allow_html=True)
                     k2.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">平均</div><div style="color:#38bdf8; font-weight:800;">{int(df_p["スコア"].mean()):+}</div></div>', unsafe_allow_html=True)
-                    k3.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">最高勝利</div><div style="color:#38bdf8; font-weight:800;">+{int(df_p["スコア"].max())}</div></div>', unsafe_allow_html=True)
+                    k3.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">最高</div><div style="color:#38bdf8; font-weight:800;">+{int(df_p["スコア"].max())}</div></div>', unsafe_allow_html=True)
                     st.line_chart(df_p.set_index("日付")["スコア"].cumsum(), height=150)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-        period = st.radio("表示期間", ["今日", "今月", "前月", "全期間"], index=0, horizontal=True, label_visibility="collapsed")
-        if period == "今日": df_f = df_l[df_l["日付"].dt.date == now_jst.date()]
+        # 期間選択
+        period = st.radio("表示期間", ["今日", "昨日", "今月", "前月", "全期間"], index=0, horizontal=True, label_visibility="collapsed")
+        
+        target_date_obj = now_jst.date()
+        if period == "今日": df_f = df_l[df_l["日付"].dt.date == target_date_obj]
+        elif period == "昨日": 
+            target_date_obj = (now_jst - timedelta(days=1)).date()
+            df_f = df_l[df_l["日付"].dt.date == target_date_obj]
         elif period == "今月": df_f = df_l[(df_l["日付"].dt.year == now_jst.year) & (df_l["日付"].dt.month == now_jst.month)]
         elif period == "前月":
             lm = now_jst.replace(day=1) - timedelta(days=1)
@@ -134,36 +130,41 @@ with tab_rank:
                     if st.button("詳細", key=f"detail_{row['名前']}"): st.session_state.detail_p = row['名前']; st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            # --- 【改善】全期間対応・スコア監視モニター ＆ 神の調整 ---
-            total_diff = int(df_l["スコア"].sum())
-            st.markdown(f'<div class="monitor-panel">', unsafe_allow_html=True)
-            m_color = "#4ade80" if total_diff == 0 else "#fb7185"
-            st.markdown(f'<span style="color:#94a3b8; font-size:0.7rem;">📊 全期間の収支 差額モニター</span><br><h2 style="color:{m_color}; margin:0;">{total_diff:+}</h2>', unsafe_allow_html=True)
+            # --- 【重要】全期間差額モニター ＆ 当日メンバーでの神調整 ---
+            # 常にリーグ全期間の累計差額をチェック
+            all_time_diff = int(df_l["スコア"].sum())
             
-            if total_diff != 0:
-                if st.button("⚖️ 神の調整を実行 (全期間対象)", key="god_fix_v2", use_container_width=True):
-                    try:
-                        all_rank = df_l.groupby("名前")["スコア"].sum().sort_values(ascending=False)
-                        top_p = all_rank.index[0]
-                        last_p = all_rank.index[-1]
-                        
-                        adjustment = -total_diff
-                        # 【新ロジック】
-                        # 差額がプラス(+) -> ポイントが余っているため、1位から徴収(マイナス)
-                        # 差額がマイナス(-) -> ポイントが足りないため、最下位に付与(プラス)
-                        target = top_p if total_diff > 0 else last_p
-                        
-                        new_row = pd.DataFrame([{
-                            "名前": target, "スコア": adjustment, "リーグ": t_league,
-                            "日付": get_jst_now().strftime("%Y-%m-%d %H:%M")
-                        }])
-                        conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, new_row], ignore_index=True))
-                        st.cache_data.clear(); st.success(f"調整完了: {target} に {adjustment:+}pt 適用しました"); time.sleep(1); st.rerun()
-                    except: st.error("調整に失敗しました。")
-            st.markdown('</div>', unsafe_allow_html=True)
-        else: st.info("記録がありません。")
+            if period in ["今日", "昨日"]:
+                st.markdown(f'<div class="monitor-panel">', unsafe_allow_html=True)
+                m_color = "#4ade80" if all_time_diff == 0 else "#fb7185"
+                st.markdown(f'<span style="color:#94a3b8; font-size:0.7rem;">📊 リーグ累計の収支差額</span><br><h2 style="color:{m_color}; margin:0;">{all_time_diff:+}</h2>', unsafe_allow_html=True)
+                
+                if all_time_diff != 0:
+                    btn_label = f"⚖️ {period}のメンバーで累計を調整"
+                    if st.button(btn_label, key="god_fix_master", use_container_width=True):
+                        try:
+                            # 選択期間（今日/昨日）のランキングから1位と最下位を特定
+                            top_p = rank_df.iloc[0]["名前"]
+                            last_p = rank_df.iloc[-1]["名前"]
+                            
+                            adjustment = -all_time_diff
+                            # ロジック：累計プラス(+) -> 今日の1位から徴収、累計マイナス(-) -> 今日の最下位に付与
+                            target = top_p if all_time_diff > 0 else last_p
+                            
+                            # 保存日付は選択期間に合わせる
+                            save_date = target_date_obj.strftime("%Y-%m-%d") + " 23:59"
+                            
+                            new_row = pd.DataFrame([{
+                                "名前": target, "スコア": adjustment, "リーグ": t_league,
+                                "日付": save_date
+                            }])
+                            conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, new_row], ignore_index=True))
+                            st.cache_data.clear(); st.success(f"全期間のズレを解消: {target} に {adjustment:+}pt (日付:{save_date})"); time.sleep(1); st.rerun()
+                        except: st.error("調整に失敗しました。")
+                st.markdown('</div>', unsafe_allow_html=True)
+        else: st.info(f"{period}の記録はありません。")
 
-# --- 2. スコア入力（10単位切り捨て・初期1名） ---
+# --- 2. スコア入力 ---
 with tab_input:
     if not df_players.empty:
         l_players = df_players[df_players["リーグ"] == t_league]["名前"].tolist()
@@ -183,7 +184,6 @@ with tab_input:
                 entries.append({"名前": p_n, "スコア": val, "日付": get_jst_now().strftime("%Y-%m-%d %H:%M"), "リーグ": t_league})
         
         can_save = not has_zero and len(entries) > 0
-        if has_zero: st.error("❌ スコア0は保存不可")
         
         c_add, c_del, c_save = st.columns([1, 1, 2])
         if c_add.button("➕ プレイヤー追加"): st.session_state.input_rows += 1; st.rerun()
@@ -197,7 +197,7 @@ with tab_setting:
     m1, m2, m3 = st.tabs(["👤 登録", "🏆 リーグ", "📜 削除"])
     with m1:
         pn = st.text_input("選手名")
-        if st.button("登録") and pn:
+        if st.button("追加") and pn:
             conn.update(spreadsheet=url, worksheet="players", data=pd.concat([df_players, pd.DataFrame([{"名前": pn, "リーグ": t_league}])], ignore_index=True))
             st.cache_data.clear(); st.rerun()
     with m2:
