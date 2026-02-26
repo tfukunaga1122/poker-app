@@ -97,7 +97,7 @@ with tab_rank:
                 if cl.button("✖", key="close_db"): del st.session_state.detail_p; st.rerun()
                 if not df_p.empty:
                     k1, k2, k3 = st.columns(3)
-                    k1.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">勝率</div><div style="color:#38bdf8; font-weight:800;">{(df_p["スコ2"] > 0).mean()*100:.1f}%</div></div>', unsafe_allow_html=True)
+                    k1.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">勝率</div><div style="color:#38bdf8; font-weight:800;">{(df_p["スコア"] > 0).mean()*100:.1f}%</div></div>', unsafe_allow_html=True)
                     k2.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">平均</div><div style="color:#38bdf8; font-weight:800;">{int(df_p["スコア"].mean()):+}</div></div>', unsafe_allow_html=True)
                     k3.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">最高</div><div style="color:#38bdf8; font-weight:800;">+{int(df_p["スコア"].max())}</div></div>', unsafe_allow_html=True)
                     
@@ -225,3 +225,4 @@ with tab_setting:
                     if c2.button("🗑️", key=f"d_{i}"):
                         conn.update(spreadsheet=url, worksheet="scores", data=df_scores.drop(i))
                         st.cache_data.clear(); st.rerun()
+
