@@ -97,10 +97,27 @@ with tab_rank:
                 if cl.button("✖", key="close_db"): del st.session_state.detail_p; st.rerun()
                 if not df_p.empty:
                     k1, k2, k3 = st.columns(3)
-                    k1.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">勝率</div><div style="color:#38bdf8; font-weight:800;">{(df_p["スコア"] > 0).mean()*100:.1f}%</div></div>', unsafe_allow_html=True)
+                    k1.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">勝率</div><div style="color:#38bdf8; font-weight:800;">{(df_p["スコ2"] > 0).mean()*100:.1f}%</div></div>', unsafe_allow_html=True)
                     k2.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">平均</div><div style="color:#38bdf8; font-weight:800;">{int(df_p["スコア"].mean()):+}</div></div>', unsafe_allow_html=True)
                     k3.markdown(f'<div style="text-align:center;"><div style="font-size:0.6rem; color:#94a3b8;">最高</div><div style="color:#38bdf8; font-weight:800;">+{int(df_p["スコア"].max())}</div></div>', unsafe_allow_html=True)
+                    
+                    st.markdown('<div style="font-size:0.7rem; color:#94a3b8; margin-top:10px;">累計収支推移</div>', unsafe_allow_html=True)
                     st.line_chart(df_p.set_index("日付")["スコア"].cumsum(), height=150)
+                    
+                    st.markdown('<div style="font-size:0.7rem; color:#94a3b8; margin-top:5px; margin-bottom:5px;">増減履歴</div>', unsafe_allow_html=True)
+                    # 一回ごとの増減額を表示するデータ一覧
+                    df_history = df_p[['日付', 'スコア']].copy().sort_values("日付", ascending=False)
+                    df_history['日付'] = df_history['日付'].dt.strftime('%m/%d %H:%M')
+                    st.dataframe(
+                        df_history,
+                        column_config={
+                            "日付": "日時",
+                            "スコア": st.column_config.NumberColumn("増減", format="%+d")
+                        },
+                        hide_index=True,
+                        use_container_width=True,
+                        height=150
+                    )
                 st.markdown('</div>', unsafe_allow_html=True)
 
         # 期間選択
@@ -155,7 +172,6 @@ with tab_rank:
                             time.sleep(1)
                             st.rerun()
                         except Exception as e:
-                            # st.rerun()を邪魔しないようにExceptionのみキャッチ
                             st.error(f"エラーが発生しました: {e}")
                 st.markdown('</div>', unsafe_allow_html=True)
         else: st.info(f"{period}の記録はありません。")
