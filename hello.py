@@ -52,6 +52,22 @@ st.markdown("""
         background: rgba(15, 23, 42, 0.9); border: 1px solid #fbbf24; border-radius: 15px;
         padding: 15px; text-align: center; margin-top: 15px;
     }
+    
+    .rank-up { color: #4ade80; font-size: 0.6rem; margin-left: 2px; }
+    .rank-down { color: #fb7185; font-size: 0.6rem; margin-left: 2px; }
+    .rank-new { color: #fbbf24; font-size: 0.5rem; margin-left: 2px; font-style: italic; }
+    .rank-steady { color: #64748b; font-size: 0.6rem; margin-left: 2px; }
+    
+    .title-badge {
+        display: inline-block;
+        padding: 1px 4px;
+        border-radius: 4px;
+        font-size: 0.55rem;
+        font-weight: 800;
+        margin-left: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -78,6 +94,41 @@ with st.sidebar:
 
 tab_rank, tab_input, tab_setting = st.tabs(["🏆 ランキング", "💰 スコア入力", "⚙️ 設定"])
 
+def get_player_titles(player_name, df_league):
+    titles = []
+    p_data = df_league[df_league["名前"] == player_name].sort_values("日付")
+    all_p_stats = df_league.groupby("名前")["スコア"].agg(['sum', 'max', 'count']).reset_index()
+    
+    if p_data.empty: return titles
+
+    # 1. King (通算1位)
+    top_player = all_p_stats.sort_values("sum", ascending=False).iloc[0]["名前"]
+    if player_name == top_player: titles.append("👑 King")
+    
+    # 2. Whale (最大勝利額1位)
+    whale_player = all_p_stats.sort_values("max", ascending=False).iloc[0]["名前"]
+    if player_name == whale_player and p_data["スコア"].max() > 0: titles.append("🐋 Whale")
+    
+    # 3. Hot (3連勝中)
+    if len(p_data) >= 3:
+        last_3 = p_data.tail(3)["スコア"].tolist()
+        if all(x > 0 for x in last_3): titles.append("🔥 Hot")
+        
+    # 4. Rock (安定)
+    if len(p_data) >= 5 and p_data["スコア"].mean() > 0:
+        titles.append("🛡️ Rock")
+        
+    # 5. Rookie (新人)
+    if len(p_data) < 3:
+        titles.append("✨ Rookie")
+        
+    # 6. Sniper (高勝率)
+    win_rate = (p_data["スコア"] > 0).mean()
+    if len(p_data) >= 5 and win_rate >= 0.6:
+        titles.append("🎯 Sniper")
+        
+    return titles
+
 # --- 1. ランキング ＆ 神の調整 ---
 with tab_rank:
     if not df_scores.empty:
@@ -86,6 +137,17 @@ with tab_rank:
         df_l["日付"] = pd.to_datetime(df_l["日付"], errors='coerce')
         now_jst = get_jst_now()
 
+        # 変動計算用ロジック (通算順位の比較)
+        all_time_total = df_l.groupby("名前")["スコア"].sum().sort_values(ascending=False)
+        current_rank_map = {name: i+1 for i, name in enumerate(all_time_total.index)}
+        
+        if len(df_l) > 1:
+            last_date = df_l["日付"].max()
+            prev_total = df_l[df_l["日付"] < last_date].groupby("名前")["スコア"].sum().sort_values(ascending=False)
+            prev_rank_map = {name: i+1 for i, name in enumerate(prev_total.index)}
+        else:
+            prev_rank_map = {}
+
         # 詳細分析
         if "detail_p" in st.session_state:
             dp = st.session_state.detail_p
@@ -93,7 +155,12 @@ with tab_rank:
             with st.container():
                 st.markdown(f'<div class="db-card">', unsafe_allow_html=True)
                 ch, cl = st.columns([5, 1])
-                ch.markdown(f"#### 💎 {dp} の分析")
+                
+                # 称号の表示
+                p_titles = get_player_titles(dp, df_l)
+                title_html = "".join([f'<span class="title-badge">{t}</span>' for t in p_titles])
+                ch.markdown(f"#### 💎 {dp} {title_html}")
+                
                 if cl.button("✖", key="close_db"): del st.session_state.detail_p; st.rerun()
                 if not df_p.empty:
                     k1, k2, k3 = st.columns(3)
@@ -105,7 +172,6 @@ with tab_rank:
                     st.line_chart(df_p.set_index("日付")["スコア"].cumsum(), height=150)
                     
                     st.markdown('<div style="font-size:0.7rem; color:#94a3b8; margin-top:5px; margin-bottom:5px;">増減履歴</div>', unsafe_allow_html=True)
-                    # 一回ごとの増減額を表示するデータ一覧
                     df_history = df_p[['日付', 'スコア']].copy().sort_values("日付", ascending=False)
                     df_history['日付'] = df_history['日付'].dt.strftime('%m/%d %H:%M')
                     st.dataframe(
@@ -138,13 +204,31 @@ with tab_rank:
             rank_df = df_f.groupby("名前")["スコア"].sum().reset_index().sort_values("スコア", ascending=False).reset_index(drop=True)
             for i, row in rank_df.iterrows():
                 v = int(row['スコア']); style = "score-plus" if v >= 0 else "score-minus"
+                
+                name = row["名前"]
+                cur_r = current_rank_map.get(name)
+                pre_r = prev_rank_map.get(name)
+                if pre_r is None:
+                    diff_html = '<span class="rank-new">new</span>'
+                elif cur_r < pre_r:
+                    diff_html = f'<span class="rank-up">▲</span>'
+                elif cur_r > pre_r:
+                    diff_html = f'<span class="rank-down">▼</span>'
+                else:
+                    diff_html = '<span class="rank-steady">-</span>'
+
+                # 称号バッジの生成
+                p_titles = get_player_titles(name, df_l)
+                # ランキング表示では1つ目の重要な称号のみ出す（スペース確保のため）
+                title_badge_html = f'<span class="title-badge">{p_titles[0]}</span>' if p_titles else ""
+
                 st.markdown(f'<div class="rank-card">', unsafe_allow_html=True)
-                c_r, c_n, c_s, c_b = st.columns([0.1, 0.45, 0.3, 0.15])
-                c_r.markdown(f'<div style="color:#fbbf24; font-weight:900; font-size:0.8rem;">#{i+1}</div>', unsafe_allow_html=True)
-                c_n.markdown(f'<div class="player-name">{row["名前"]}</div>', unsafe_allow_html=True)
+                c_r, c_n, c_s, c_b = st.columns([0.15, 0.4, 0.3, 0.15])
+                c_r.markdown(f'<div style="color:#fbbf24; font-weight:900; font-size:0.8rem; display:flex; align-items:center;">#{i+1}{diff_html}</div>', unsafe_allow_html=True)
+                c_n.markdown(f'<div class="player-name">{name}{title_badge_html}</div>', unsafe_allow_html=True)
                 c_s.markdown(f'<div class="{style}">{v:+,}</div>', unsafe_allow_html=True)
                 with c_b:
-                    if st.button("詳細", key=f"detail_{row['名前']}"): st.session_state.detail_p = row['名前']; st.rerun()
+                    if st.button("詳細", key=f"detail_{name}"): st.session_state.detail_p = name; st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
             
             # --- 神の調整パネル ---
@@ -155,13 +239,12 @@ with tab_rank:
                 st.markdown(f'<span style="color:#94a3b8; font-size:0.7rem;">📊 リーグ累計の収支差額</span><br><h2 style="color:{m_color}; margin:0;">{all_time_diff:+}</h2>', unsafe_allow_html=True)
                 
                 if all_time_diff != 0:
-                    btn_label = f"⚖️ {period}のメンバーで累計を調整"
+                    btn_label = f"⚖️神の調整"
                     if st.button(btn_label, key="god_fix_v2", use_container_width=True):
                         try:
                             top_p = rank_df.iloc[0]["名前"]
                             last_p = rank_df.iloc[-1]["名前"]
                             adjustment = -all_time_diff
-                            # ロジック：余剰(+)なら1位から徴収、不足(-)なら最下位に付与
                             target = top_p if all_time_diff > 0 else last_p
                             save_date = target_date_obj.strftime("%Y-%m-%d") + " 23:59"
                             
@@ -225,4 +308,3 @@ with tab_setting:
                     if c2.button("🗑️", key=f"d_{i}"):
                         conn.update(spreadsheet=url, worksheet="scores", data=df_scores.drop(i))
                         st.cache_data.clear(); st.rerun()
-
