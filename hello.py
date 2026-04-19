@@ -211,10 +211,10 @@ with tab_input:
         total_color = "#4ade80" if total_score > 0 else ("#fb7185" if total_score < 0 else "#94a3b8")
         can_save = not has_zero and len(entries) > 0
         c_add, c_del, c_total, c_save = st.columns([1, 1, 1, 2])
-        if c_add.button("➕ プレイヤー追加"): st.session_state.input_rows += 1; st.rerun()
-        if c_del.button("➖ プレイヤー削除", disabled=st.session_state.input_rows <= 1): st.session_state.input_rows -= 1; st.rerun()
+        if c_add.button("➕追加"): st.session_state.input_rows += 1; st.rerun()
+        if c_del.button("➖削除", disabled=st.session_state.input_rows <= 1): st.session_state.input_rows -= 1; st.rerun()
         c_total.markdown(f'<div style="display:flex; flex-direction:column; justify-content:center; height:38px; text-align:center;"><div style="font-size:0.55rem; color:#94a3b8; line-height:1;">誤差</div><div style="color:{total_color}; font-weight:800; font-size:0.95rem; line-height:1.2;">{total_score:+,}</div></div>', unsafe_allow_html=True)
-        if c_save.button("🚀 自分の記録を保存", disabled=not can_save, use_container_width=True):
+        if c_save.button("保存", disabled=not can_save, use_container_width=True):
             conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True))
             st.cache_data.clear(); st.session_state.input_rows = 1; st.toast("保存成功！"); time.sleep(1); st.rerun()
 
