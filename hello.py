@@ -52,6 +52,8 @@ st.markdown("""
         background: rgba(15, 23, 42, 0.9); border: 1px solid #fbbf24; border-radius: 15px;
         padding: 15px; text-align: center; margin-top: 15px;
     }
+    div[data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; gap: 0.4rem !important; }
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] { min-width: 0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -186,8 +188,8 @@ with tab_input:
             with st.container(border=True):
                 sign_key = f"sign_{i}"
                 if sign_key not in st.session_state: st.session_state[sign_key] = 1
-                c1, c_sign, c2, c3 = st.columns([1.3, 0.4, 0.9, 0.7])
-                p_n = c1.selectbox(f"選手 {i+1}", l_players, key=f"p_name_{i}")
+                p_n = st.selectbox(f"選手 {i+1}", l_players, key=f"p_name_{i}")
+                c_sign, c2, c3 = st.columns([0.5, 1.5, 0.9])
                 c_sign.markdown('<div style="height: 1.875rem;"></div>', unsafe_allow_html=True)
                 sign_label = "＋" if st.session_state[sign_key] == 1 else "−"
                 if c_sign.button(sign_label, key=f"toggle_sign_{i}", use_container_width=True):
@@ -207,7 +209,7 @@ with tab_input:
         c_add, c_del, c_total, c_save = st.columns([1, 1, 1, 2])
         if c_add.button("➕ プレイヤー追加"): st.session_state.input_rows += 1; st.rerun()
         if c_del.button("➖ プレイヤー削除", disabled=st.session_state.input_rows <= 1): st.session_state.input_rows -= 1; st.rerun()
-        c_total.markdown(f'<div style="display:flex; flex-direction:column; justify-content:center; height:38px; text-align:center;"><div style="font-size:0.55rem; color:#94a3b8; line-height:1;">合計</div><div style="color:{total_color}; font-weight:800; font-size:0.95rem; line-height:1.2;">{total_score:+,}</div></div>', unsafe_allow_html=True)
+        c_total.markdown(f'<div style="display:flex; flex-direction:column; justify-content:center; height:38px; text-align:center;"><div style="font-size:0.55rem; color:#94a3b8; line-height:1;">誤差</div><div style="color:{total_color}; font-weight:800; font-size:0.95rem; line-height:1.2;">{total_score:+,}</div></div>', unsafe_allow_html=True)
         if c_save.button("🚀 自分の記録を保存", disabled=not can_save, use_container_width=True):
             conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True))
             st.cache_data.clear(); st.session_state.input_rows = 1; st.toast("保存成功！"); time.sleep(1); st.rerun()
