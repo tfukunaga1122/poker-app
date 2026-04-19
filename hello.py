@@ -52,8 +52,12 @@ st.markdown("""
         background: rgba(15, 23, 42, 0.9); border: 1px solid #fbbf24; border-radius: 15px;
         padding: 15px; text-align: center; margin-top: 15px;
     }
-    div[data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; gap: 0.4rem !important; }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] { min-width: 0 !important; }
+    div[data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; gap: 0.3rem !important; }
+    div[data-testid="stHorizontalBlock"] > div { min-width: 0 !important; flex: 1 1 0 !important; }
+    div[data-testid="stHorizontalBlock"] [data-testid="stNumberInput"],
+    div[data-testid="stHorizontalBlock"] [data-testid="stSelectbox"] { min-width: 0 !important; width: 100% !important; }
+    div[data-testid="stHorizontalBlock"] input { min-width: 0 !important; width: 100% !important; }
+    [data-testid="stNumberInput"] button { display: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -189,7 +193,7 @@ with tab_input:
                 sign_key = f"sign_{i}"
                 if sign_key not in st.session_state: st.session_state[sign_key] = 1
                 p_n = st.selectbox(f"選手 {i+1}", l_players, key=f"p_name_{i}")
-                c_sign, c2, c3 = st.columns([0.5, 1.5, 0.9])
+                c_sign, c2, c3 = st.columns([0.5, 1, 0.8])
                 c_sign.markdown('<div style="height: 1.875rem;"></div>', unsafe_allow_html=True)
                 sign_label = "＋" if st.session_state[sign_key] == 1 else "−"
                 if c_sign.button(sign_label, key=f"toggle_sign_{i}", use_container_width=True):
