@@ -58,6 +58,41 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] [data-testid="stSelectbox"] { min-width: 0 !important; width: 100% !important; }
     div[data-testid="stHorizontalBlock"] input { min-width: 0 !important; width: 100% !important; }
     [data-testid="stNumberInput"] button { display: none !important; }
+
+    /* ライト／ダーク両モードでダーク配色を固定 */
+    div.stButton > button {
+        background-color: rgba(30, 41, 59, 0.85) !important;
+        color: #f8fafc !important;
+        border: 1px solid rgba(148, 163, 184, 0.3) !important;
+    }
+    div.stButton > button:hover { background-color: rgba(51, 65, 85, 0.95) !important; border-color: rgba(148, 163, 184, 0.55) !important; color: #f8fafc !important; }
+    div.stButton > button:disabled { opacity: 0.45 !important; color: #cbd5e1 !important; }
+    div[data-testid="stNumberInput"] input,
+    div[data-testid="stTextInput"] input {
+        background-color: rgba(15, 23, 42, 0.85) !important;
+        color: #f8fafc !important;
+        border: 1px solid rgba(148, 163, 184, 0.25) !important;
+    }
+    div[data-baseweb="select"] > div {
+        background-color: rgba(15, 23, 42, 0.85) !important;
+        color: #f8fafc !important;
+        border-color: rgba(148, 163, 184, 0.25) !important;
+    }
+    div[data-baseweb="select"] * { color: #f8fafc !important; }
+    div[data-baseweb="popover"] li,
+    div[data-baseweb="popover"] [role="option"] {
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
+    }
+    div[data-baseweb="popover"] li:hover,
+    div[data-baseweb="popover"] [role="option"]:hover {
+        background-color: #334155 !important;
+    }
+    label, .stCaption, div[data-testid="stWidgetLabel"] p { color: #e2e8f0 !important; }
+    div[data-testid="stCaptionContainer"], .stCaption { color: #94a3b8 !important; }
+    div[data-testid="stContainer"], [data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: rgba(148, 163, 184, 0.25) !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -195,7 +230,7 @@ with tab_input:
                 p_n = st.selectbox(f"選手 {i+1}", l_players, key=f"p_name_{i}")
                 c_sign, c2, c3 = st.columns([0.5, 1, 0.8])
                 c_sign.markdown('<div style="height: 1.875rem;"></div>', unsafe_allow_html=True)
-                sign_label = "＋" if st.session_state[sign_key] == 1 else "−"
+                sign_label = "➕" if st.session_state[sign_key] == 1 else "➖"
                 if c_sign.button(sign_label, key=f"toggle_sign_{i}", use_container_width=True):
                     st.session_state[sign_key] *= -1
                     st.rerun()
@@ -214,7 +249,7 @@ with tab_input:
         if c_add.button("➕追加"): st.session_state.input_rows += 1; st.rerun()
         if c_del.button("➖削除", disabled=st.session_state.input_rows <= 1): st.session_state.input_rows -= 1; st.rerun()
         c_total.markdown(f'<div style="display:flex; flex-direction:column; justify-content:center; height:38px; text-align:center;"><div style="font-size:0.55rem; color:#94a3b8; line-height:1;">誤差</div><div style="color:{total_color}; font-weight:800; font-size:0.95rem; line-height:1.2;">{total_score:+,}</div></div>', unsafe_allow_html=True)
-        if c_save.button("保存", disabled=not can_save, use_container_width=True):
+        if c_save.button("💾保存", disabled=not can_save, use_container_width=True):
             conn.update(spreadsheet=url, worksheet="scores", data=pd.concat([df_scores, pd.DataFrame(entries)], ignore_index=True))
             st.cache_data.clear(); st.session_state.input_rows = 1; st.toast("保存成功！"); time.sleep(1); st.rerun()
 
