@@ -56,7 +56,8 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] > div { min-width: 0 !important; flex: 1 1 0 !important; }
     div[data-testid="stHorizontalBlock"] [data-testid="stNumberInput"],
     div[data-testid="stHorizontalBlock"] [data-testid="stSelectbox"] { min-width: 0 !important; width: 100% !important; }
-    div[data-testid="stHorizontalBlock"] input { min-width: 0 !important; width: 100% !important; }
+    div[data-testid="stHorizontalBlock"] [data-testid="stNumberInput"] input,
+    div[data-testid="stHorizontalBlock"] [data-testid="stTextInput"] input { min-width: 0 !important; width: 100% !important; }
     [data-testid="stNumberInput"] button { display: none !important; }
 
     /* ライト／ダーク両モードでダーク配色を固定 */
@@ -73,12 +74,21 @@ st.markdown("""
         color: #f8fafc !important;
         border: 1px solid rgba(148, 163, 184, 0.25) !important;
     }
+    /* セレクトボックス本体 */
     div[data-baseweb="select"] > div {
         background-color: rgba(15, 23, 42, 0.85) !important;
-        color: #f8fafc !important;
         border-color: rgba(148, 163, 184, 0.25) !important;
     }
-    div[data-baseweb="select"] * { color: #f8fafc !important; }
+    /* 選択値・プレースホルダ・内部input（baseweb search input）の文字色 */
+    div[data-baseweb="select"] div,
+    div[data-baseweb="select"] span,
+    div[data-baseweb="select"] input {
+        color: #f8fafc !important;
+    }
+    div[data-baseweb="select"] input { background: transparent !important; }
+    /* 矢印アイコン */
+    div[data-baseweb="select"] svg { fill: #94a3b8 !important; }
+    /* プルダウンのオプション */
     div[data-baseweb="popover"] li,
     div[data-baseweb="popover"] [role="option"] {
         background-color: #1e293b !important;
@@ -88,9 +98,9 @@ st.markdown("""
     div[data-baseweb="popover"] [role="option"]:hover {
         background-color: #334155 !important;
     }
-    label, .stCaption, div[data-testid="stWidgetLabel"] p { color: #e2e8f0 !important; }
+    label, div[data-testid="stWidgetLabel"] p { color: #e2e8f0 !important; }
     div[data-testid="stCaptionContainer"], .stCaption { color: #94a3b8 !important; }
-    div[data-testid="stContainer"], [data-testid="stVerticalBlockBorderWrapper"] {
+    [data-testid="stVerticalBlockBorderWrapper"] {
         border-color: rgba(148, 163, 184, 0.25) !important;
     }
     </style>
@@ -235,8 +245,14 @@ with tab_input:
                     st.session_state[sign_key] *= -1
                     st.rerun()
                 raw = c2.number_input("pt", min_value=0, step=10, key=f"raw_pts_{i}")
-                rate = c3.selectbox("率", ["1/1", "1/5", "1/10", "1/30"], key=f"rate_{i}")
-                div = 1.0; div = 5.0 if rate=="1/5" else (10.0 if rate=="1/10" else (30.0 if rate=="1/30" else 1.0))
+                rate = c3.selectbox("率", ["1/1", "1/5", "1/10", "1/30", "カスタム"], key=f"rate_{i}")
+                if rate == "カスタム":
+                    custom_x = st.number_input("カスタム倍率 1/X のXを入力", min_value=1, step=1, value=1, key=f"custom_div_{i}")
+                    div = float(custom_x)
+                elif rate == "1/5": div = 5.0
+                elif rate == "1/10": div = 10.0
+                elif rate == "1/30": div = 30.0
+                else: div = 1.0
                 val = int(math.trunc(raw / div / 10) * 10) * st.session_state[sign_key]
                 if val == 0: has_zero = True
                 st.caption(f"換算: {val:+}")
