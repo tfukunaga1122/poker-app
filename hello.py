@@ -1,5 +1,6 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
+from gspread_dataframe import get_as_dataframe
 import pandas as pd
 from datetime import datetime, timedelta
 import math
@@ -108,13 +109,16 @@ st.markdown("""
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+def read_live_worksheet(worksheet_name):
+    """Streamlit/GSheets接続の内部キャッシュを通さず、毎回台帳を取得する。"""
+    worksheet = conn.client._select_worksheet(spreadsheet=url, worksheet=worksheet_name)
+    return get_as_dataframe(worksheet=worksheet, evaluate_formulas=True).dropna(how="all")
+
 def load_all_data():
     try:
-        # 「同期」で外側のキャッシュを消しても、接続ライブラリ側の
-        # 既定1時間キャッシュが残らないようにする。
-        scores = conn.read(spreadsheet=url, worksheet="scores", ttl=0).dropna(how="all")
-        players = conn.read(spreadsheet=url, worksheet="players", ttl=0).dropna(how="all")
-        leagues = conn.read(spreadsheet=url, worksheet="leagues", ttl=0).dropna(how="all")
+        scores = read_live_worksheet("scores")
+        players = read_live_worksheet("players")
+        leagues = read_live_worksheet("leagues")
         return scores, players, leagues
     except: return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
