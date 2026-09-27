@@ -139,7 +139,9 @@ with tab_rank:
     if not df_scores.empty:
         df_l = df_scores[df_scores["リーグ"] == t_league].copy()
         df_l["スコア"] = pd.to_numeric(df_l["スコア"], errors='coerce').fillna(0)
-        df_l["日付"] = pd.to_datetime(df_l["日付"], errors='coerce')
+        # 既存の「分まで」と自動記録の「秒まで」の日時が混在するため、
+        # Pandasに行ごとの形式判定をさせる。
+        df_l["日付"] = pd.to_datetime(df_l["日付"], format="mixed", errors="coerce")
         now_jst = get_jst_now()
 
         # 詳細分析
