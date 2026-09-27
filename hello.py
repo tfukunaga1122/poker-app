@@ -108,7 +108,6 @@ st.markdown("""
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-@st.cache_data(ttl=300)
 def load_all_data():
     try:
         # 「同期」で外側のキャッシュを消しても、接続ライブラリ側の
