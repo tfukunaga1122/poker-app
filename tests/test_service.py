@@ -155,11 +155,11 @@ def test_service_accepts_line_score_when_only_score_ocr_failed(monkeypatch) -> N
         "message": {"id": "M1"},
         "replyToken": "token",
     }))
-    assert "入力 532168 -4400" in line.replies[-1]
+    assert "入力 -4400" in line.replies[-1]
 
     asyncio.run(service.process_text_event({
         "source": {"groupId": "G1", "userId": "U1"},
-        "message": {"type": "text", "id": "M2", "text": "入力 532168 -4400"},
+        "message": {"type": "text", "id": "M2", "text": "入力 -4400"},
         "replyToken": "token",
     }))
 

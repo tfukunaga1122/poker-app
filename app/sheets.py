@@ -208,10 +208,10 @@ class SheetsRepository:
                 and (room_id is None or row.get("部屋ID") == room_id)
             ):
                 matches.append(row)
-        # 部屋IDを指定しない手入力は、未処理画像が1件だけの場合に限定する。
-        if len(matches) != 1:
+        if not matches:
             return None
-        row = matches[0]
+        # 部屋IDなしの入力は、公式LINEが最後に案内した（最も新しい）画像へ補完する。
+        row = max(matches, key=lambda item: item.get("受信日時", ""))
         return PendingScoreInput(
             message_id=row.get("line_message_id", ""),
             group_id=row.get("group_id", ""),

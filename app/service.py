@@ -97,7 +97,7 @@ class ResultImportService:
                     reply_token,
                     "結果画面（部屋ID: " + room_id + "）は認識しましたが、収支を確定できませんでした。\n"
                     "元の収支を次の形式で送ってください。\n"
-                    f"入力 {room_id} -4400\n"
+                    "入力 -4400\n"
                     "※アプリ画面に表示された換算前の符号付き数値を入力してください。",
                 )
             else:
@@ -150,11 +150,10 @@ class ResultImportService:
                 self.sheets.find_pending_score_input, group_id, user_id, room_id
             )
             if not pending:
-                suffix = "" if room_id else " 部屋ID"
                 await self.line.reply_text(
                     reply_token,
                     "収支の手入力待ち画像が見つかりません。\n"
-                    f"画像の案内にある形式で「入力{suffix} 数値」を送ってください。",
+                    "画像の案内にある形式で「入力 数値」を送ってください。",
                 )
                 return
             converted_score = convert_score(raw_score, group.rate_divisor)
@@ -233,7 +232,7 @@ class ResultImportService:
 
 
 def _parse_manual_score_input(text: str) -> tuple[str | None, int] | None:
-    """`入力 532168 -4400` または未処理画像が1枚だけの `入力 -4400` を読む。"""
+    """`入力 -4400` を読む。部屋ID付き入力も過去の案内との互換性のため受け付ける。"""
     normalized = unicodedata.normalize("NFKC", text).translate(
         str.maketrans({"−": "-", "ー": "-", "―": "-", "‐": "-", "–": "-", "—": "-"})
     )
