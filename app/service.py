@@ -181,6 +181,43 @@ class ResultImportService:
             )
             return
 
+        direct_manual_input = _parse_direct_manual_input(text)
+        if direct_manual_input:
+            requested_name, raw_score = direct_manual_input
+            group = await asyncio.to_thread(self.sheets.find_group, group_id)
+            if not group:
+                await self.line.reply_text(reply_token, "このグループは未設定です。")
+                return
+            player_name = await asyncio.to_thread(
+                self.sheets.find_player_name, group.league, requested_name
+            )
+            if not player_name:
+                await self.line.reply_text(
+                    reply_token,
+                    f"「{requested_name}」は{group.league}の選手名として見つかりません。台帳の表記を確認してください。",
+                )
+                return
+            converted_score = convert_score(raw_score, group.rate_divisor)
+            recorded_at = jst_timestamp()
+            message_id = str(message.get("id", ""))
+            await asyncio.to_thread(
+                self.sheets.append_score, player_name, converted_score, group.league, recorded_at
+            )
+            await asyncio.to_thread(
+                self.sheets.append_import,
+                ImportRecord(
+                    f"{message_id}:direct-manual", group_id, group.group_name, user_id, "",
+                    player_name, group.league, "", raw_score, converted_score,
+                    "manual_recorded", "結果画像なしのLINE手動入力", recorded_at,
+                ),
+            )
+            await self.line.reply_text(
+                reply_token,
+                f"手動で記録しました。\n{player_name}: {converted_score:+,}pt\n"
+                "※結果画像がないため、部屋IDごとの合計ポイント確認は行いません。",
+            )
+            return
+
         setup = re.fullmatch(r"設定\s*(.+?)(?:\s+([1-9]\d*))?\s*", text)
         if setup:
             league = setup.group(1).strip()
@@ -244,3 +281,20 @@ def _parse_manual_score_input(text: str) -> tuple[str | None, int] | None:
     if amount == 0:
         return None
     return room_id, amount if sign == "+" else -amount
+
+
+def _parse_direct_manual_input(text: str) -> tuple[str, int] | None:
+    """結果画像がない場合の `手動入力 選手名 -4400` を読む。"""
+    normalized = unicodedata.normalize("NFKC", text).translate(
+        str.maketrans({"−": "-", "ー": "-", "―": "-", "‐": "-", "–": "-", "—": "-"})
+    )
+    match = re.fullmatch(
+        r"(?:手動入力|手入力)\s+(.+?)\s+([+-])\s*([0-9][0-9,\s]{0,14})\s*", normalized
+    )
+    if not match:
+        return None
+    player_name, sign, digits = match.groups()
+    amount = int(re.sub(r"[^0-9]", "", digits))
+    if amount == 0:
+        return None
+    return player_name.strip(), amount if sign == "+" else -amount

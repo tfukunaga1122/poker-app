@@ -165,3 +165,18 @@ def test_service_accepts_line_score_when_only_score_ocr_failed(monkeypatch) -> N
 
     assert sheets.scores[-1][0:3] == ("たくみ", -140, "漢気リーグ")
     assert "手入力で記録しました" in line.replies[-1]
+
+
+def test_service_records_named_player_without_result_image() -> None:
+    line = FakeLine()
+    sheets = FakeSheets()
+    service = ResultImportService(line, sheets)
+
+    asyncio.run(service.process_text_event({
+        "source": {"groupId": "G1", "userId": "U1"},
+        "message": {"type": "text", "id": "M3", "text": "手動入力 タクミツ -4400"},
+        "replyToken": "token",
+    }))
+
+    assert sheets.scores[-1][0:3] == ("たくみつ", -140, "漢気リーグ")
+    assert "部屋IDごとの合計ポイント確認は行いません" in line.replies[-1]
