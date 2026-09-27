@@ -111,9 +111,11 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 @st.cache_data(ttl=300)
 def load_all_data():
     try:
-        scores = conn.read(spreadsheet=url, worksheet="scores").dropna(how="all")
-        players = conn.read(spreadsheet=url, worksheet="players").dropna(how="all")
-        leagues = conn.read(spreadsheet=url, worksheet="leagues").dropna(how="all")
+        # 「同期」で外側のキャッシュを消しても、接続ライブラリ側の
+        # 既定1時間キャッシュが残らないようにする。
+        scores = conn.read(spreadsheet=url, worksheet="scores", ttl=0).dropna(how="all")
+        players = conn.read(spreadsheet=url, worksheet="players", ttl=0).dropna(how="all")
+        leagues = conn.read(spreadsheet=url, worksheet="leagues", ttl=0).dropna(how="all")
         return scores, players, leagues
     except: return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
