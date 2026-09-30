@@ -3,6 +3,7 @@ import asyncio
 from app.models import GroupConfig, OCRResult, PendingScoreInput, UserMapping
 from app.ocr import NotResultScreenError, ScoreReadError
 from app.service import ResultImportService
+from app.sheets import _is_in_year_month
 
 
 class FakeLine:
@@ -17,6 +18,12 @@ class FakeLine:
 
     async def reply_text(self, reply_token: str, text: str) -> None:
         self.replies.append(text)
+
+
+def test_month_match_accepts_both_sheet_date_separators() -> None:
+    assert _is_in_year_month("2026-09-27 12:55", "2026-09")
+    assert _is_in_year_month("2026/09/27 12:55", "2026-09")
+    assert not _is_in_year_month("2026-08-31 21:12", "2026-09")
 
 
 class FakeSheets:

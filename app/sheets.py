@@ -266,7 +266,7 @@ class SheetsRepository:
         for row in self._read_rows("scores"):
             if (
                 row.get("リーグ") == league
-                and row.get("日付", "").startswith(year_month)
+                and _is_in_year_month(row.get("日付", ""), year_month)
             ):
                 try:
                     total += int(row.get("スコア", "0"))
@@ -307,3 +307,8 @@ def _normalize_name(value: str) -> str:
         chr(ord(character) - 0x60) if "ァ" <= character <= "ヶ" else character
         for character in text
     )
+
+
+def _is_in_year_month(value: str, year_month: str) -> bool:
+    """スプレッドシートの日付区切りの違いを吸収して月を照合する。"""
+    return value.strip().replace("/", "-").startswith(year_month)
