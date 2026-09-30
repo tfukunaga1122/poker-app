@@ -117,7 +117,7 @@ class ResultImportService:
                 group.league, result.room_id, result.raw_score, converted_score, "recorded", "", received_at,
             ),
         )
-        balance_notice = await self._monthly_balance_notice(group_id, received_at)
+        balance_notice = await self._monthly_balance_notice(group.league, received_at)
         await self.line.reply_text(
             reply_token,
             f"記録しました。\n{mapping.player_name}: {converted_score:+,}pt\n部屋ID: {result.room_id}\n{balance_notice}",
@@ -165,7 +165,7 @@ class ResultImportService:
                     "manual_recorded", "LINE手入力で補完", recorded_at,
                 ),
             )
-            balance_notice = await self._monthly_balance_notice(group_id, recorded_at)
+            balance_notice = await self._monthly_balance_notice(group.league, recorded_at)
             await self.line.reply_text(
                 reply_token,
                 f"手入力で記録しました。\n{pending.player_name}: {converted_score:+,}pt\n"
@@ -206,7 +206,7 @@ class ResultImportService:
             await self.line.reply_text(
                 reply_token,
                 f"手動で記録しました。\n{player_name}: {converted_score:+,}pt\n"
-                + await self._monthly_balance_notice(group_id, recorded_at),
+                + await self._monthly_balance_notice(group.league, recorded_at),
             )
             return
 
@@ -259,9 +259,9 @@ class ResultImportService:
             f"登録しました。\nLINE表示名: {display_name}\n選手名: {player_name}\nリーグ: {group.league}",
         )
 
-    async def _monthly_balance_notice(self, group_id: str, recorded_at: str) -> str:
+    async def _monthly_balance_notice(self, league: str, recorded_at: str) -> str:
         year_month = recorded_at[:7]
-        total = await asyncio.to_thread(self.sheets.month_total, group_id, year_month)
+        total = await asyncio.to_thread(self.sheets.league_month_total, league, year_month)
         year, month = year_month.split("-")
         label = f"{int(year)}年{int(month)}月"
         if total == 0:

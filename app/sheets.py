@@ -260,17 +260,16 @@ class SheetsRepository:
                     continue
         return total
 
-    def month_total(self, group_id: str, year_month: str) -> int:
-        """グループ内で指定月に記録した全スコアの合計を返す。"""
+    def league_month_total(self, league: str, year_month: str) -> int:
+        """台帳上の同一リーグ・指定月にある全スコアの合計を返す。"""
         total = 0
-        for row in self._read_rows("ocr_imports"):
+        for row in self._read_rows("scores"):
             if (
-                row.get("group_id") == group_id
-                and row.get("状態") in {"recorded", "manual_recorded"}
-                and row.get("受信日時", "").startswith(year_month)
+                row.get("リーグ") == league
+                and row.get("日付", "").startswith(year_month)
             ):
                 try:
-                    total += int(row.get("換算後スコア", "0"))
+                    total += int(row.get("スコア", "0"))
                 except ValueError:
                     continue
         return total

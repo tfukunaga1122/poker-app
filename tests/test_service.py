@@ -69,7 +69,7 @@ class FakeSheets:
     def room_total(self, group_id: str, room_id: str) -> int:
         return sum(record.converted_score or 0 for record in self.imports if record.room_id == room_id)
 
-    def month_total(self, group_id: str, year_month: str) -> int:
+    def league_month_total(self, league: str, year_month: str) -> int:
         return sum(record.converted_score or 0 for record in self.imports)
 
 
