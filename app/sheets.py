@@ -260,6 +260,21 @@ class SheetsRepository:
                     continue
         return total
 
+    def month_total(self, group_id: str, year_month: str) -> int:
+        """グループ内で指定月に記録した全スコアの合計を返す。"""
+        total = 0
+        for row in self._read_rows("ocr_imports"):
+            if (
+                row.get("group_id") == group_id
+                and row.get("状態") in {"recorded", "manual_recorded"}
+                and row.get("受信日時", "").startswith(year_month)
+            ):
+                try:
+                    total += int(row.get("換算後スコア", "0"))
+                except ValueError:
+                    continue
+        return total
+
     def ensure_schema(self) -> list[str]:
         metadata = self.service.spreadsheets().get(
             spreadsheetId=self.spreadsheet_id, fields="sheets.properties"

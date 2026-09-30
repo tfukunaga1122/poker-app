@@ -117,12 +117,7 @@ class ResultImportService:
                 group.league, result.room_id, result.raw_score, converted_score, "recorded", "", received_at,
             ),
         )
-        total = await asyncio.to_thread(self.sheets.room_total, group_id, result.room_id)
-        total_text = f"{total:+,}pt"
-        if total == 0:
-            balance_notice = "✅ 合計ポイントは 0 です。"
-        else:
-            balance_notice = f"⚠️ 現在の合計ポイントは {total_text} です。全員分の画像を確認してください。"
+        balance_notice = await self._monthly_balance_notice(group_id, received_at)
         await self.line.reply_text(
             reply_token,
             f"記録しました。\n{mapping.player_name}: {converted_score:+,}pt\n部屋ID: {result.room_id}\n{balance_notice}",
@@ -170,10 +165,7 @@ class ResultImportService:
                     "manual_recorded", "LINE手入力で補完", recorded_at,
                 ),
             )
-            total = await asyncio.to_thread(self.sheets.room_total, group_id, pending.room_id)
-            balance_notice = "✅ 合計ポイントは 0 です。" if total == 0 else (
-                f"⚠️ 現在の合計ポイントは {total:+,}pt です。全員分の画像を確認してください。"
-            )
+            balance_notice = await self._monthly_balance_notice(group_id, recorded_at)
             await self.line.reply_text(
                 reply_token,
                 f"手入力で記録しました。\n{pending.player_name}: {converted_score:+,}pt\n"
@@ -214,7 +206,7 @@ class ResultImportService:
             await self.line.reply_text(
                 reply_token,
                 f"手動で記録しました。\n{player_name}: {converted_score:+,}pt\n"
-                "※結果画像がないため、部屋IDごとの合計ポイント確認は行いません。",
+                + await self._monthly_balance_notice(group_id, recorded_at),
             )
             return
 
@@ -266,6 +258,15 @@ class ResultImportService:
             reply_token,
             f"登録しました。\nLINE表示名: {display_name}\n選手名: {player_name}\nリーグ: {group.league}",
         )
+
+    async def _monthly_balance_notice(self, group_id: str, recorded_at: str) -> str:
+        year_month = recorded_at[:7]
+        total = await asyncio.to_thread(self.sheets.month_total, group_id, year_month)
+        year, month = year_month.split("-")
+        label = f"{int(year)}年{int(month)}月"
+        if total == 0:
+            return f"✅ {label}の合計ポイントは 0 です。"
+        return f"⚠️ {label}の合計ポイントは {total:+,}pt です。今月の記録を確認してください。"
 
 
 def _parse_manual_score_input(text: str) -> tuple[str | None, int] | None:

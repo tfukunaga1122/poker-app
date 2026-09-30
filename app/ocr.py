@@ -32,8 +32,10 @@ _ROOM_ID = re.compile(r"部\s*屋\s*(?:I|1|\|)\s*D[^0-9]{0,80}?([0-9]{3,})", re.
 _SCORE = re.compile(
     r"収\s*支[^+\-0-9]{0,24}([+\-])\s*([0-9][0-9,\s]{0,14})"
 )
+_ZERO_SCORE = re.compile(r"収\s*支[^0-9]{0,24}0(?:[0,\s]*)")
 _SIGNED_NUMBER = re.compile(r"^([+\-])\s*([0-9][0-9,\s]{0,14})$")
-_RESULT_TITLE = re.compile(r"今\s*回\s*の\s*成\s*績")
+# 結果画面の装飾文字はVisionで「今回の績」のように一部が欠けることがある。
+_RESULT_TITLE = re.compile(r"今\s*回(?:\s*の)?\s*(?:成\s*)?績")
 _ROOM_LABEL = re.compile(r"部\s*屋\s*(?:I|1|\|)\s*D", re.IGNORECASE)
 _SCORE_LABEL = re.compile(r"収\s*支")
 _HAND_LABEL = re.compile(r"最\s*良\s*ハ\s*ン\s*ド")
@@ -51,7 +53,11 @@ def _normalize(value: str) -> str:
 
 
 def _score_from_value(value: str) -> int | None:
-    match = _SIGNED_NUMBER.fullmatch(_normalize(value))
+    normalized = _normalize(value)
+    # アプリでは収支0だけ符号なしで表示される。
+    if re.fullmatch(r"0[0,\s]*", normalized):
+        return 0
+    match = _SIGNED_NUMBER.fullmatch(normalized)
     if not match:
         return None
     sign, digits = match.groups()
@@ -78,12 +84,12 @@ def extract_result_from_text(text: str) -> OCRResult:
     if not room_match:
         raise OCRReadError("部屋IDを読み取れませんでした。")
     if not score_match:
+        if _ZERO_SCORE.search(normalized):
+            return OCRResult(room_id=room_match.group(1), raw_score=0, source_text=normalized)
         raise ScoreReadError(room_match.group(1))
 
     sign, digits = score_match.groups()
     amount = int(re.sub(r"[^0-9]", "", digits))
-    if amount == 0:
-        raise ScoreReadError(room_match.group(1), "収支が0の画像は記録対象外です。")
     return OCRResult(
         room_id=room_match.group(1),
         raw_score=amount if sign == "+" else -amount,
@@ -133,6 +139,7 @@ def extract_result_from_positioned_words(
     room_labels = label_positions(("部屋", "ID"), "部屋ID")
 
     room_id = ""
+    room_label_y: int | None = None
     for label_x, label_y in room_labels:
         candidates: list[tuple[int, int, str]] = []
         for word, x, y in normalized_words:
@@ -142,6 +149,7 @@ def extract_result_from_positioned_words(
                 candidates.append((abs(y - label_y), x, word))
         if candidates:
             room_id = min(candidates)[2]
+            room_label_y = label_y
             break
 
     score_labels = label_positions(("収", "支"), "収支")
@@ -169,9 +177,35 @@ def extract_result_from_positioned_words(
             raw_score = min(candidates)[2]
             break
 
+    # 「収支」の装飾文字だけがOCRで欠けても、結果タイトル・部屋ID・下側の符号付き
+    # 数値が揃えば、このアプリ固有の結果画面として安全に補完できる。
+    if raw_score is None and room_label_y is not None:
+        normalized_source = _normalize(source_text)
+        has_result_heading = bool(_RESULT_TITLE.search(normalized_source) or _HAND_LABEL.search(normalized_source))
+        if has_result_heading:
+            candidates = []
+            for index, (word, x, y) in enumerate(normalized_words):
+                if y <= room_label_y + 120:
+                    continue
+                value = _score_from_value(word)
+                if value is not None and word.startswith(("+", "-")):
+                    candidates.append((y - room_label_y, x, value))
+                    continue
+                if word not in {"+", "-"}:
+                    continue
+                for number, number_x, number_y in normalized_words[index + 1 : index + 4]:
+                    if number_x < x or number_x - x > 260 or abs(number_y - y) > 55:
+                        continue
+                    value = _score_from_value(word + number)
+                    if value is not None:
+                        candidates.append((y - room_label_y, x, value))
+                        break
+            if candidates:
+                raw_score = min(candidates)[2]
+
     if not room_id:
         raise OCRReadError("部屋IDを読み取れませんでした。")
-    if raw_score is None or raw_score == 0:
+    if raw_score is None:
         raise ScoreReadError(room_id)
     return OCRResult(room_id=room_id, raw_score=raw_score, source_text=source_text)
 

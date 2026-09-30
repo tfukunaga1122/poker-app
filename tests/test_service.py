@@ -69,8 +69,11 @@ class FakeSheets:
     def room_total(self, group_id: str, room_id: str) -> int:
         return sum(record.converted_score or 0 for record in self.imports if record.room_id == room_id)
 
+    def month_total(self, group_id: str, year_month: str) -> int:
+        return sum(record.converted_score or 0 for record in self.imports)
 
-def test_service_records_score_and_reports_room_total(monkeypatch) -> None:
+
+def test_service_records_score_and_reports_month_total(monkeypatch) -> None:
     line = FakeLine()
     sheets = FakeSheets()
     service = ResultImportService(line, sheets)
@@ -83,10 +86,10 @@ def test_service_records_score_and_reports_room_total(monkeypatch) -> None:
     }))
 
     assert sheets.scores[0][0:3] == ("たくみ", 2080, "漢気リーグ")
-    assert "現在の合計ポイントは +2,080pt" in line.replies[-1]
+    assert "合計ポイントは +2,080pt" in line.replies[-1]
 
 
-def test_service_reports_zero_when_room_becomes_balanced(monkeypatch) -> None:
+def test_service_reports_zero_when_month_becomes_balanced(monkeypatch) -> None:
     line = FakeLine()
     sheets = FakeSheets()
     service = ResultImportService(line, sheets)
@@ -179,4 +182,4 @@ def test_service_records_named_player_without_result_image() -> None:
     }))
 
     assert sheets.scores[-1][0:3] == ("たくみつ", -140, "漢気リーグ")
-    assert "部屋IDごとの合計ポイント確認は行いません" in line.replies[-1]
+    assert "合計ポイントは -140pt" in line.replies[-1]

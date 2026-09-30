@@ -62,6 +62,25 @@ def test_extracts_dash_variant_from_text() -> None:
     assert result.raw_score == -17000
 
 
+def test_extracts_zero_score_without_sign() -> None:
+    result = extract_result_from_text("今回の成績\n部屋ID 210606\n収支 0")
+
+    assert result.room_id == "210606"
+    assert result.raw_score == 0
+
+
+def test_extracts_score_when_score_label_is_missing_from_positioned_ocr() -> None:
+    words = [
+        ("今回の績", 290, 410), ("部屋", 112, 785), ("ID", 184, 783),
+        ("996440", 638, 788), ("+", 570, 1261), ("16,200", 604, 1260),
+    ]
+
+    result = extract_result_from_positioned_words(words, "今回の績")
+
+    assert result.room_id == "996440"
+    assert result.raw_score == 16200
+
+
 def test_rejects_image_without_required_labels() -> None:
     try:
         extract_result_from_text("+62,500")
