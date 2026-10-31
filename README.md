@@ -80,4 +80,6 @@ Cloud RunのサービスアカウントにSheets API・Cloud Vision APIの利用
 
 ## 開発上の注意
 
+Streamlit Cloudの画面（`hello.py`）は `requirements.txt` の固定バージョンで動かします。Streamlit Cloudは `uv.lock` があると `requirements.txt` より優先し、LINE用の部品（`uvloop`・`grpcio` など）まで入れてしまうため、`uv.lock` はリポジトリに含めません（2026-10-31 に Segmentation fault で停止したため）。Cloud Runの `Dockerfile` は `pyproject.toml` から依存を入れるので影響しません。
+
 既存のStreamlit画面はシート全体を書き戻す処理を使用しています。OCRと同時に手入力が発生する場合の競合を避けるため、次の段階で手動登録もバックエンドの行追記APIに統一してください。

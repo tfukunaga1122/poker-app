@@ -1,3 +1,4 @@
+import faulthandler
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 from gspread_dataframe import get_as_dataframe
@@ -5,6 +6,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 import math
 import time
+
+# Segmentation fault で落ちた際に、原因箇所をStreamlit Cloudのログへ出す。
+faulthandler.enable()
 
 # --- 基本設定 ---
 url = "https://docs.google.com/spreadsheets/d/1YLXZWQ6XZz04mi0dx9_6WFbm2-yZQGGIXd3yVEh9kTQ/edit?usp=sharing"

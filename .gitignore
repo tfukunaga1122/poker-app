@@ -4,3 +4,5 @@ __pycache__/
 .env
 .gcloud/
 .streamlit/secrets.toml
+# Streamlit Cloudはuv.lockをrequirements.txtより優先するため、リポジトリに含めない。
+uv.lock
