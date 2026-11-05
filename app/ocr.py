@@ -26,6 +26,8 @@ class ScoreReadError(OCRReadError):
 
 _FULLWIDTH_DIGITS = str.maketrans("０１２３４５６７８９＋－，", "0123456789+-,")
 _DASH_VARIANTS = str.maketrans({"−": "-", "ー": "-", "―": "-", "‐": "-", "–": "-", "—": "-"})
+# Visionは結果画面の「+」を漢字の「十」と読むことがある。数値の直前にある場合だけ符号に戻す。
+_PLUS_LOOKALIKE = re.compile(r"十(?=\s*[0-9])")
 # Vision OCRでは「部屋ID」と値の間に改行・「部屋名」など別の項目が挿入される
 # ことがある。ラベル後の次の数値を、十分短い範囲で許容して取得する。
 _ROOM_ID = re.compile(r"部\s*屋\s*(?:I|1|\|)\s*D[^0-9]{0,80}?([0-9]{3,})", re.IGNORECASE)
@@ -48,8 +50,9 @@ _vision_client_lock = threading.Lock()
 
 
 def _normalize(value: str) -> str:
-    """全半角とVisionが使いがちなマイナス記号の違いを吸収する。"""
-    return unicodedata.normalize("NFKC", value).translate(_FULLWIDTH_DIGITS).translate(_DASH_VARIANTS)
+    """全半角とVisionが使いがちなプラス・マイナス記号の違いを吸収する。"""
+    text = unicodedata.normalize("NFKC", value).translate(_FULLWIDTH_DIGITS).translate(_DASH_VARIANTS)
+    return _PLUS_LOOKALIKE.sub("+", text)
 
 
 def _score_from_value(value: str) -> int | None:
@@ -115,7 +118,12 @@ def extract_result_from_positioned_words(
     結果画面にチャットが重なった場合、Visionの全文テキストは画面順にならない。
     ラベルの右側かつ近いY座標にある数値を使うことで、チャット中の数値を避ける。
     """
-    normalized_words = [(_normalize(word), x, y) for word, x, y in words if word.strip()]
+    # 符号だけの単語として「十」が返る場合も「+」として扱う。
+    normalized_words = [
+        ("+" if _normalize(word) == "十" else _normalize(word), x, y)
+        for word, x, y in words
+        if word.strip()
+    ]
 
     def joined_label(index: int, parts: tuple[str, ...]) -> bool:
         """Visionがラベルを単語単位に分けた場合にも一致させる。"""
@@ -140,6 +148,9 @@ def extract_result_from_positioned_words(
 
     room_id = ""
     room_label_y: int | None = None
+    # 結果画面の値（部屋ID・収支など）は右寄せで並ぶ。部屋IDのラベルと値の中間より
+    # 右側を「値の列」とし、左側に透けて見える背景の数値と区別する。
+    value_column_x = 0
     for label_x, label_y in room_labels:
         candidates: list[tuple[int, int, str]] = []
         for word, x, y in normalized_words:
@@ -148,8 +159,9 @@ def extract_result_from_positioned_words(
             if re.fullmatch(r"[0-9]{3,}", word):
                 candidates.append((abs(y - label_y), x, word))
         if candidates:
-            room_id = min(candidates)[2]
+            _, room_id_x, room_id = min(candidates)
             room_label_y = label_y
+            value_column_x = (label_x + room_id_x) // 2
             break
 
     score_labels = label_positions(("収", "支"), "収支")
@@ -157,7 +169,9 @@ def extract_result_from_positioned_words(
     for label_x, label_y in score_labels:
         candidates: list[tuple[int, int, int]] = []
         for index, (word, x, y) in enumerate(normalized_words):
-            if x <= label_x + 100 or abs(y - label_y) > 90:
+            # 収支の行のすぐ上には、背景の他プレイヤーのチップ数が透けて見える
+            # （約60px上）。同じ行の値だけを採るため、縦のずれは狭く許容する。
+            if x <= label_x + 100 or abs(y - label_y) > 40:
                 continue
             value = _score_from_value(word)
             if value is not None:
@@ -179,13 +193,17 @@ def extract_result_from_positioned_words(
 
     # 「収支」の装飾文字だけがOCRで欠けても、結果タイトル・部屋ID・下側の符号付き
     # 数値が揃えば、このアプリ固有の結果画面として安全に補完できる。
-    if raw_score is None and room_label_y is not None:
+    # 「収支」が読めているのに値だけ読めない場合は、下側の別の数値を誤って拾わないよう
+    # 補完せず、LINEでの手入力に回す。
+    if raw_score is None and room_label_y is not None and not score_labels:
         normalized_source = _normalize(source_text)
         has_result_heading = bool(_RESULT_TITLE.search(normalized_source) or _HAND_LABEL.search(normalized_source))
         if has_result_heading:
             candidates = []
             for index, (word, x, y) in enumerate(normalized_words):
-                if y <= room_label_y + 120:
+                # 収支の上には他プレイヤーのチップ数（例: -31000）が左寄りに透けて
+                # 読まれるため、値の列にある数値だけを候補にする。
+                if y <= room_label_y + 120 or x <= value_column_x:
                     continue
                 value = _score_from_value(word)
                 if value is not None and word.startswith(("+", "-")):
